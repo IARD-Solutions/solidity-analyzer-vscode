@@ -178,7 +178,10 @@ export function activate(context: vscode.ExtensionContext) {
 					'solidityAnalyzer',
 					'Solidity Analyzer',
 					vscode.ViewColumn.Two,
-					{}
+					{
+						enableScripts: true,
+						localResourceRoots: [vscode.Uri.file(context.extensionPath)]
+					}
 				);
 				panel.webview.html = getWebviewContent(vulnerabilities);
 
@@ -285,7 +288,6 @@ function getWebviewContent(vulnerabilities: Vulnerability[]): string {
 			</style>
 			<script>
 				function toggleDescription(event) {
-					console.log("toggling");
 					const description = event.currentTarget.parentElement.querySelector('.description');
 					const arrow = event.currentTarget.querySelector('.arrow');
 					if (description.style.display === 'none' || description.style.display === '') {
@@ -298,7 +300,6 @@ function getWebviewContent(vulnerabilities: Vulnerability[]): string {
 				}
 				window.addEventListener('DOMContentLoaded', () => {
 					document.querySelectorAll('.toggle').forEach(item => {
-						console.log("listener added");
 						item.addEventListener('click', toggleDescription);
 					});
 				});
