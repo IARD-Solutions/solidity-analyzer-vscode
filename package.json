@@ -15,9 +15,33 @@
     "commands": [
       {
         "command": "extension.analyzeAllSolidityFiles",
-        "title": "Analyze all Solidity files in the current workspace"
+        "title": "Analyze all Solidity files in the current workspace",
+        "category": "Solidity Analyzer",
+        "when": "editorLangId == solidity"
+      },
+      {
+        "command": "extension.analyzeCurrentSolidityFile",
+        "title": "Analyze current Solidity file",
+        "category": "Solidity Analyzer",
+        "when": "editorLangId == solidity"
       }
-    ]
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "extension.analyzeAllSolidityFiles",
+          "title": "Analyze all Solidity files in the current workspace",
+          "category": "Solidity Analyzer",
+          "when": "editorLangId == solidity"
+        },
+        {
+          "command": "extension.analyzeCurrentSolidityFile",
+          "title": "Analyze current Solidity file",
+          "category": "Solidity Analyzer",
+          "when": "editorLangId == solidity"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",
