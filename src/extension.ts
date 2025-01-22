@@ -4,8 +4,8 @@ import * as path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-//const apiURL = process.env.API_URL || "https://api.iard.solutions/v2/analyze";
-const apiURL = process.env.API_URL || "https://39a6f5b7-dad1-4ec7-8f85-8f91c97d650b-00-3jyz30ougo887.riker.replit.dev/v2/analyze";
+const apiURL = process.env.API_URL || "https://api.iard.solutions/v2/analyze";
+//const apiURL = process.env.API_URL || "https://39a6f5b7-dad1-4ec7-8f85-8f91c97d650b-00-3jyz30ougo887.riker.replit.dev/v2/analyze";
 
 interface Vulnerability {
 	check: string;
@@ -123,7 +123,7 @@ export function activate(context: vscode.ExtensionContext) {
 			const relativePath = workspaceFolder ? path.relative(workspaceFolder.uri.fsPath, document.uri.fsPath) : document.uri.fsPath;
 			codeObject[relativePath] = { content: document.getText() };
 
-			const importRegex = /import\s+["'](?!@)(.+?\.sol)["'];/g; // Match import statements that are not from node_modules (with @)
+			const importRegex = /import\s+(?:["'](?!@)(.+?\.sol)["']|{[^}]+}\s+from\s+["'](?!@)(.+?\.sol)["']);/g; // Match import statements that are not from node_modules (with @), including curly brace imports
 			const importedFiles = new Set<string>();
 
 			async function addImports(filePath: string) {
@@ -137,7 +137,8 @@ export function activate(context: vscode.ExtensionContext) {
 				const content = document.getText();
 				let match;
 				while ((match = importRegex.exec(content)) !== null) {
-					const importPath = match[1];
+					const importPath = match[1] || match[2];
+					if (!importPath) continue;
 					const absoluteImportPath = path.resolve(path.dirname(filePath), importPath);
 					const relativeImportPath = path.relative(workspaceFolder.uri.fsPath, absoluteImportPath);
 					if (!importedFiles.has(relativeImportPath)) {
