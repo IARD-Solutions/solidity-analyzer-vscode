@@ -277,24 +277,31 @@ function highlightVulnerabilities(vulnerabilities: Vulnerability[]) {
 
 
 function handleVulnerabilities(vulnerabilities: Vulnerability[]): Vulnerability[] {
+
+	vulnerabilities.forEach(vuln => {
+		vuln.description = vuln.description.split('\n').filter(line => !line.includes('node_modules')).join('\n');
+	});
+
 	const lineRegex = /([^\s()]+\.sol)#(\d+)(?:-(\d+))?/g;
 
-	return vulnerabilities.map(vuln => {
-		const lines: { contract: string, lines: number[] }[] = [];
-		let match;
-		while ((match = lineRegex.exec(vuln.description)) !== null) {
-			const contract = match[1];
-			const startLine = parseInt(match[2], 10);
-			const endLine = match[3] ? parseInt(match[3], 10) : startLine;
-			const lineNumbers = [];
-			for (let line = startLine; line <= endLine; line++) {
-				lineNumbers.push(line);
+	return vulnerabilities
+		.map(vuln => {
+			const lines: { contract: string, lines: number[] }[] = [];
+			let match;
+			while ((match = lineRegex.exec(vuln.description)) !== null) {
+				const contract = match[1];
+				const startLine = parseInt(match[2], 10);
+				const endLine = match[3] ? parseInt(match[3], 10) : startLine;
+				const lineNumbers = [];
+				for (let line = startLine; line <= endLine; line++) {
+					lineNumbers.push(line);
+				}
+				lines.push({ contract, lines: lineNumbers });
 			}
-			lines.push({ contract, lines: lineNumbers });
-		}
-		vuln.lines = lines;
-		return vuln;
-	});
+			vuln.lines = lines;
+			return vuln;
+		})
+		.filter(vuln => vuln.lines && vuln.lines.length > 0);
 }
 
 
