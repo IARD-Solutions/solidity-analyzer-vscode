@@ -19,6 +19,18 @@ interface ApiResponse {
 	result: Vulnerability[];
 }
 
+const errorHighlightDecoration = vscode.window.createTextEditorDecorationType({
+	backgroundColor: 'rgba(255,0,0,0.3)',
+	overviewRulerColor: 'red',
+	overviewRulerLane: vscode.OverviewRulerLane.Right,
+	light: {
+		backgroundColor: 'rgba(255,0,0,0.3)'
+	},
+	dark: {
+		backgroundColor: 'rgba(255,0,0,0.3)'
+	}
+});
+
 /**
  * Activates the Solidity Analyzer extension.
  * 
@@ -101,8 +113,9 @@ export function activate(context: vscode.ExtensionContext) {
 				);
 				panel.webview.html = getWebviewContent(vulnerabilities);
 
+				highlightVulnerabilities(vulnerabilities);
+
 			} catch (error) {
-				console.error('Error analyzing Solidity code:', error);
 				console.error('Error analyzing Solidity code:', error);
 				vscode.window.showErrorMessage('Failed to analyze Solidity code: ' + error);
 			}
@@ -185,19 +198,86 @@ export function activate(context: vscode.ExtensionContext) {
 				);
 				panel.webview.html = getWebviewContent(vulnerabilities);
 
+				highlightVulnerabilities(vulnerabilities);
+
 			} catch (error) {
 				vscode.window.showErrorMessage('Failed to analyze Solidity code: ' + error);
 			}
 		}
 	});
 
+	// Add a status bar item to dismiss all highlights
+	const editor = vscode.window.activeTextEditor;
+
+	if (editor) {
+		const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+		statusBarItem.text = 'Dismiss SA Highlights';
+		statusBarItem.command = 'extension.dismissAllHighlights';
+		statusBarItem.show();
+		vscode.commands.registerCommand('extension.dismissAllHighlights', () => {
+			editor.setDecorations(errorHighlightDecoration, []);
+		});
+		context.subscriptions.push(statusBarItem);
+	}
+
 	context.subscriptions.push(analyzeAllCommand);
 	context.subscriptions.push(analyzeCurrentFileCommand);
 }
 
+function highlightVulnerabilities(vulnerabilities: Vulnerability[]) {
+	const editor = vscode.window.activeTextEditor;
+	if (!editor) return;
+
+	const decorations: vscode.DecorationOptions[] = [];
+
+	vulnerabilities.forEach(vuln => {
+		vuln.lines?.forEach(lineInfo => {
+
+			if (lineInfo.contract.includes('node_modules')) return; // Skip highlighting for node_modules
+			const document = vscode.workspace.textDocuments.find(doc => doc.fileName.includes(lineInfo.contract));
+			if (document) {
+				let startLine: number = 0;
+				let endLine: number = 0;
+				lineInfo.lines.forEach((line, index) => {
+					if (startLine === 0) {
+						startLine = line;
+						endLine = line;
+					} else if (line === endLine + 1) {
+						endLine = line;
+					} else {
+						const range = new vscode.Range(startLine - 1, 0, endLine - 1, document.lineAt(endLine - 1).range.end.character);
+						const decoration: vscode.DecorationOptions = {
+							range,
+							hoverMessage: new vscode.MarkdownString(`
+								${vuln.description}
+							`)
+						};
+						decorations.push(decoration);
+						startLine = line;
+						endLine = line;
+					}
+					if (index === lineInfo.lines.length - 1) {
+						const range = new vscode.Range(startLine - 1, 0, endLine - 1, document.lineAt(endLine - 1).range.end.character);
+						const decoration: vscode.DecorationOptions = {
+							range,
+							hoverMessage: new vscode.MarkdownString(`
+								${vuln.description}
+							`)
+						};
+						decorations.push(decoration);
+					}
+				});
+			}
+		});
+	});
+
+	editor.setDecorations(errorHighlightDecoration, decorations);
+
+}
+
 
 function handleVulnerabilities(vulnerabilities: Vulnerability[]): Vulnerability[] {
-	const lineRegex = /(\S+\.sol)#(\d+)(?:-(\d+))?/g;
+	const lineRegex = /([^\s()]+\.sol)#(\d+)(?:-(\d+))?/g;
 
 	return vulnerabilities.map(vuln => {
 		const lines: { contract: string, lines: number[] }[] = [];
