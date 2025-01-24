@@ -156,9 +156,13 @@ export function activate(context: vscode.ExtensionContext) {
 					const relativeImportPath = path.relative(workspaceFolder.uri.fsPath, absoluteImportPath);
 					if (!importedFiles.has(relativeImportPath)) {
 						importedFiles.add(relativeImportPath);
-						const importDocument = await vscode.workspace.openTextDocument(absoluteImportPath);
-						codeObject[relativeImportPath] = { content: importDocument.getText() };
-						await addImports(absoluteImportPath);
+						try {
+							const importDocument = await vscode.workspace.openTextDocument(absoluteImportPath);
+							codeObject[relativeImportPath] = { content: importDocument.getText() };
+							await addImports(absoluteImportPath);
+						} catch (error) {
+							console.warn(`Failed to open import file: ${absoluteImportPath}`, error);
+						}
 					}
 				}
 			}
@@ -183,9 +187,10 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 
 				const data = await response.json() as ApiResponse;
+				console.debug("Response: ", data);
 
 				const vulnerabilities = handleVulnerabilities(data.result);
-				console.debug(vulnerabilities);
+				console.debug("Vulnerabilities: ", vulnerabilities);
 				// Display vulnerabilities in a webview panel
 				const panel = vscode.window.createWebviewPanel(
 					'solidityAnalyzer',
