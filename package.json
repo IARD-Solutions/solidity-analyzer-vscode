@@ -41,6 +41,16 @@
           "when": "editorLangId == solidity"
         }
       ]
+    },
+    "configuration": {
+      "type": "object",
+      "properties": {
+        "solidityAnalyzer.analyzeNodeModules": {
+          "type": "boolean",
+          "default": false,
+          "description": "Analyze Solidity files in node_modules folder"
+        }
+      }
     }
   },
   "scripts": {

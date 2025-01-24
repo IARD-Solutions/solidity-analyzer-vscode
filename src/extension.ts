@@ -278,9 +278,14 @@ function highlightVulnerabilities(vulnerabilities: Vulnerability[]) {
 
 function handleVulnerabilities(vulnerabilities: Vulnerability[]): Vulnerability[] {
 
-	vulnerabilities.forEach(vuln => {
-		vuln.description = vuln.description.split('\n').filter(line => !line.includes('node_modules')).join('\n');
-	});
+	const config = vscode.workspace.getConfiguration('solidityAnalyzer');
+	const analyzeNodeModules = config.get<boolean>('analyzeNodeModules');
+
+	if (!analyzeNodeModules) {
+		vulnerabilities.forEach(vuln => {
+			vuln.description = vuln.description.split('\n').filter(line => !line.includes('node_modules')).join('\n');
+		});
+	}
 
 	const lineRegex = /([^\s()]+\.sol)#(\d+)(?:-(\d+))?/g;
 
