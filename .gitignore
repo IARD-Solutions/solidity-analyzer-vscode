@@ -44,3 +44,6 @@ coverage/
 
 # Mac system files
 .DS_Store
+
+# Visual Studio Code files
+*.vsix
