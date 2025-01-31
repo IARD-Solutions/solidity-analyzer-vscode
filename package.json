@@ -1,29 +1,34 @@
 {
-  "name": "solidity-analyzer",
+  "name": "iards-solidity-analyzer",
   "displayName": "Solidity Analyzer",
-  "description": "A VS Code extension for analyzing Solidity code for vulnerabilities using the open-source tool Solidity Analyzer.",
+  "description": "A Visual Studio Code extension that analyzes Solidity code for vulnerabilities using the open-source Solidity Analyzer tool.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/IARD-Solutions/Solidity-Analyzer"
+  },
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.96.0"
   },
   "categories": [
-    "Other"
+    "Programming Languages"
   ],
-  "activationEvents": [],
+  "publisher": "IARDSolutions",
+  "activationEvents": [
+    "onLanguage:solidity"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "extension.analyzeAllSolidityFiles",
         "title": "Analyze all Solidity files in the current workspace",
-        "category": "Solidity Analyzer",
-        "when": "editorLangId == solidity"
+        "category": "Solidity Analyzer"
       },
       {
         "command": "extension.analyzeCurrentSolidityFile",
         "title": "Analyze current Solidity file",
-        "category": "Solidity Analyzer",
-        "when": "editorLangId == solidity"
+        "category": "Solidity Analyzer"
       }
     ],
     "menus": {
@@ -31,14 +36,12 @@
         {
           "command": "extension.analyzeAllSolidityFiles",
           "title": "Analyze all Solidity files in the current workspace",
-          "category": "Solidity Analyzer",
-          "when": "editorLangId == solidity"
+          "category": "Solidity Analyzer"
         },
         {
           "command": "extension.analyzeCurrentSolidityFile",
           "title": "Analyze current Solidity file",
-          "category": "Solidity Analyzer",
-          "when": "editorLangId == solidity"
+          "category": "Solidity Analyzer"
         }
       ]
     },
