@@ -13,11 +13,12 @@
   "categories": [
     "Programming Languages"
   ],
-  "publisher": "IARDSolutions",
+  "publisher": "IARD-Solutions",
   "activationEvents": [
     "onLanguage:solidity"
   ],
   "main": "./dist/extension.js",
+  "icon": "icon.png",
   "contributes": {
     "commands": [
       {
