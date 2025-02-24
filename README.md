@@ -12,7 +12,6 @@ Welcome to the Solidity Analyzer extension for Visual Studio Code. This extensio
 ## Requirements
 
 - Visual Studio Code version 1.96.0 or higher.
-- An API key for the Solidity Analyzer service.
 
 ## Extension Settings
 
@@ -22,7 +21,7 @@ This extension contributes the following settings:
 
 ## Known Issues
 
-Please report any issues you encounter by email at iard.solutions@gmail.com
+Please report any issues you encounter, or any feedback you might have, by email at iard.solutions@gmail.com
 
 ## Release Notes
 
