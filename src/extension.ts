@@ -57,6 +57,11 @@ const errorHighlightDecoration = vscode.window.createTextEditorDecorationType({
  * If any errors occur during the analysis, an error message is shown to the user.
  */
 export function activate(context: vscode.ExtensionContext) {
+
+	// Store the active editor with decorations
+	let activeEditorWithDecorations: vscode.TextEditor | undefined;
+
+
 	let analyzeAllCommand = vscode.commands.registerCommand('extension.analyzeAllSolidityFiles', async () => {
 		const editor = vscode.window.activeTextEditor;
 		if (editor) {
@@ -112,7 +117,7 @@ export function activate(context: vscode.ExtensionContext) {
 					}
 				);
 				panel.webview.html = getWebviewContent(vulnerabilities);
-				
+
 				// Handle messages from the webview
 				panel.webview.onDidReceiveMessage(
 					message => {
@@ -215,7 +220,7 @@ export function activate(context: vscode.ExtensionContext) {
 					}
 				);
 				panel.webview.html = getWebviewContent(vulnerabilities);
-				
+
 				// Handle messages from the webview
 				panel.webview.onDidReceiveMessage(
 					message => {
@@ -229,7 +234,7 @@ export function activate(context: vscode.ExtensionContext) {
 					context.subscriptions
 				);
 
-				highlightVulnerabilities(vulnerabilities);
+				activeEditorWithDecorations = highlightVulnerabilities(vulnerabilities);
 
 			} catch (error) {
 				vscode.window.showErrorMessage('Failed to analyze Solidity code: ' + error);
@@ -238,10 +243,16 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	let dismissHighlightsCommand = vscode.commands.registerCommand('extension.dismissHighlights', () => {
-		const editor = vscode.window.activeTextEditor;
-		console.debug('Dismissing highlights');
-		if (editor) {
-			editor.setDecorations(errorHighlightDecoration, []);
+
+		// Clear decorations from the active editor if it exists
+		if (activeEditorWithDecorations) {
+			activeEditorWithDecorations.setDecorations(errorHighlightDecoration, []);
+		}
+
+		// Also try to clear from currently active editor
+		const currentEditor = vscode.window.activeTextEditor;
+		if (currentEditor && currentEditor !== activeEditorWithDecorations) {
+			currentEditor.setDecorations(errorHighlightDecoration, []);
 		}
 	});
 
@@ -299,6 +310,7 @@ function highlightVulnerabilities(vulnerabilities: Vulnerability[]) {
 
 	editor.setDecorations(errorHighlightDecoration, decorations);
 
+	return editor;
 }
 
 
@@ -395,7 +407,8 @@ function getWebviewContent(vulnerabilities: Vulnerability[]): string {
 			<title>Vulnerabilities</title>
 			<style>
 				body { font-family: Arial, sans-serif; padding: 20px; background-color: #1e1e1e; color: #d4d4d4; }
-				h1 { color: #d4d4d4; }
+				.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+				h1 { color: #d4d4d4; margin: 0; }
 				ul { list-style-type: none; padding: 0; }
 				li { background: #2d2d2d; margin: 10px 0; padding: 10px; border-radius: 5px; }
 				li h2 { margin: 0; font-size: 1.2em; color: #d9534f; cursor: pointer; }
@@ -403,7 +416,7 @@ function getWebviewContent(vulnerabilities: Vulnerability[]): string {
 				li .impact { font-weight: bold; }
 				li .description { white-space: pre-wrap; display: none; }
 				.arrow { margin-right: 10px; }
-				#dismissButton { background-color: #d9534f; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 5px; }
+				#dismissButton { background-color: #d9534f; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 5px; }
 			</style>
 			<script>
 				const vscode = acquireVsCodeApi();
@@ -430,8 +443,10 @@ function getWebviewContent(vulnerabilities: Vulnerability[]): string {
 			</script>
 		</head>
 		<body>
-			<h1>Vulnerabilities</h1>
-			<button id="dismissButton">Dismiss Highlights</button>
+			<div class="header">
+				<h1>Vulnerabilities</h1>
+				<button id="dismissButton">Dismiss Highlights</button>
+			</div>
 			<ul>
 				${vulnerabilityItems}
 			</ul>
