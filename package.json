@@ -30,6 +30,11 @@
         "command": "extension.analyzeCurrentSolidityFile",
         "title": "Analyze current Solidity file",
         "category": "Solidity Analyzer"
+      },
+      {
+        "command": "extension.dismissHighlights",
+        "title": "Dismiss vulnerability highlights",
+        "category": "Solidity Analyzer"
       }
     ],
     "menus": {
@@ -43,9 +48,40 @@
           "command": "extension.analyzeCurrentSolidityFile",
           "title": "Analyze current Solidity file",
           "category": "Solidity Analyzer"
+        },
+        {
+          "command": "extension.dismissHighlights",
+          "title": "Dismiss vulnerability highlights",
+          "category": "Solidity Analyzer"
+        }
+      ],
+      "editor/context": [
+        {
+          "submenu": "solidity.analyzer.menu",
+          "group": "navigation@1"
+        }
+      ],
+      "solidity.analyzer.menu": [
+        {
+          "command": "extension.analyzeCurrentSolidityFile",
+          "group": "1_analyze@1"
+        },
+        {
+          "command": "extension.analyzeAllSolidityFiles",
+          "group": "1_analyze@2"
+        },
+        {
+          "command": "extension.dismissHighlights",
+          "group": "1_analyze@3"
         }
       ]
     },
+    "submenus": [
+      {
+        "id": "solidity.analyzer.menu",
+        "label": "Solidity Analyzer"
+      }
+    ],
     "configuration": {
       "type": "object",
       "properties": {
