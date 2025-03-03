@@ -6,13 +6,12 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
-import { BearsRumble } from "./BearRumble.sol";
+import { ERC20Example } from "./ERC20Example.sol";
 
 /**
- * @title  Bears Rumble ICO Contract
+ * @title     ICO Contract
  * @author IARD Solutions: https://iard.solutions - Web3 Experts suited to your needs. Web3 | Consulting | Innovations
- * @author Bears Rumble: https://bearsrumble.com/
- * @notice This contract is used to manage the ICO of the BearsRumble token
+ * @notice This contract is used to manage an ICO
  *         The ICO has three sales, a cliff period and a vesting period
  *         The owner can manage the whitelist, end the sale and get back the unsold tokens
  *         The buyers can buy tokens and claim them after the vesting period
@@ -22,12 +21,6 @@ import { BearsRumble } from "./BearRumble.sol";
  * - The Sold ERC20 token total supply must be sent to this contract address before the first sale starts
  * - As the ICO include a referral system that can give up to 2% of the bought tokens, these tokens must also be sent to this contract address before the first sale starts
  *
- *  BearsRumble is a Play2Earn & Free2Play multiplayer Web3 Game
- *  Socials:
- *  - Website:https://bearsrumble.com/
- *  - Twitter:https://x.com/BearsRumble
- *  - Telegram:https://t.me/BearsRumble
- *  - Discord:https://discord.com/invite/bearsrumble
  */
 
 contract ICO is Ownable, ReentrancyGuard, Pausable {
@@ -77,7 +70,7 @@ contract ICO is Ownable, ReentrancyGuard, Pausable {
         Ended
     }
 
-    BearsRumble public immutable token;
+    ERC20Example public immutable token;
 
     SaleStages public saleStage;
 
@@ -134,7 +127,7 @@ contract ICO is Ownable, ReentrancyGuard, Pausable {
         uint256 _vestingPeriod,
         uint256 _referralRate
     ) Ownable(msg.sender) {
-        token = BearsRumble(_token);
+        token = ERC20Example(_token);
 
         saleOne.price = _saleOne.price;
         saleOne.tokenSupply = _saleOne.tokenSupply;

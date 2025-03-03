@@ -83,6 +83,7 @@
     "webpack-cli": "^5.1.4"
   },
   "dependencies": {
+    "@openzeppelin/contracts": "^5.2.0",
     "axios": "^1.7.9",
     "dotenv": "^16.4.7"
   }
