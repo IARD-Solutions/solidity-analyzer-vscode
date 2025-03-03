@@ -84,11 +84,69 @@
     ],
     "configuration": {
       "type": "object",
+      "title": "Solidity Analyzer",
       "properties": {
         "solidityAnalyzer.analyzeNodeModules": {
           "type": "boolean",
           "default": false,
           "description": "Analyze Solidity files in node_modules folder"
+        },
+        "solidityAnalyzer.logLevel": {
+          "type": "string",
+          "enum": ["debug", "info", "warn", "error"],
+          "default": "info",
+          "description": "Set the logging level for the extension"
+        },
+        "solidityAnalyzer.autoAnalyzeOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically run analysis when saving Solidity files"
+        },
+        "solidityAnalyzer.filterSeverity": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["Critical", "High", "Medium", "Low", "Informational", "Optimization"]
+          },
+          "default": ["Critical", "High", "Medium", "Low", "Informational", "Optimization"],
+          "description": "Show vulnerabilities with these severity levels"
+        },
+        "solidityAnalyzer.highlightColors": {
+          "type": "object",
+          "properties": {
+            "Critical": {
+              "type": "string",
+              "default": "rgba(255,0,0,0.3)",
+              "description": "Highlight color for Critical vulnerabilities"
+            },
+            "High": {
+              "type": "string",
+              "default": "rgba(255,127,0,0.3)",
+              "description": "Highlight color for High vulnerabilities"
+            },
+            "Medium": {
+              "type": "string",
+              "default": "rgba(255,255,0,0.3)",
+              "description": "Highlight color for Medium vulnerabilities"
+            },
+            "Low": {
+              "type": "string",
+              "default": "rgba(0,127,255,0.3)",
+              "description": "Highlight color for Low vulnerabilities"
+            }
+          },
+          "default": {
+            "Critical": "rgba(255,0,0,0.3)",
+            "High": "rgba(255,127,0,0.3)",
+            "Medium": "rgba(255,255,0,0.3)",
+            "Low": "rgba(0,127,255,0.3)"
+          },
+          "description": "Custom highlight colors for different vulnerability severities"
+        },
+        "solidityAnalyzer.hideStatusBar": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hide the Solidity Analyzer status bar item"
         }
       }
     }
