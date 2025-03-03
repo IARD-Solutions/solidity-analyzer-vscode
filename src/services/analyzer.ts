@@ -1,0 +1,159 @@
+import * as vscode from 'vscode';
+import * as path from 'path';
+import { ApiResponse, CodeObject, Vulnerability } from '../models/types';
+import { handleVulnerabilities } from '../utils/vulnerabilityProcessor';
+
+/**
+ * Service class for analyzing Solidity code for vulnerabilities.
+ */
+export class SolidityAnalyzer {
+    private readonly apiURL: string;
+    private readonly apiKey: string | undefined;
+
+    /**
+     * Creates a new SolidityAnalyzer instance.
+     * 
+     * @param apiURL The URL of the analyzer API
+     * @param apiKey Optional API key for authentication
+     */
+    constructor(apiURL: string, apiKey?: string) {
+        this.apiURL = apiURL;
+        this.apiKey = apiKey;
+    }
+
+    /**
+     * Analyzes all Solidity files in the current workspace.
+     * 
+     * @returns A promise resolving to processed vulnerabilities
+     * @throws Error if no workspace is open or API request fails
+     */
+    public async analyzeAllSolidityFiles(): Promise<Vulnerability[]> {
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+
+        if (!workspaceFolder) {
+            throw new Error('Please open a workspace folder containing the Solidity files.');
+        }
+
+        const solidityFiles = await vscode.workspace.findFiles('**/*.sol', '**/node_modules/**');
+
+        if (solidityFiles.length === 0) {
+            throw new Error('No Solidity files found in the workspace.');
+        }
+
+        const codeObject: CodeObject = {};
+
+        for (const file of solidityFiles) {
+            const relativePath = path.relative(workspaceFolder.uri.fsPath, file.fsPath);
+            const document = await vscode.workspace.openTextDocument(file);
+            codeObject[relativePath] = { content: document.getText() };
+        }
+
+        return await this.analyzeCode(codeObject);
+    }
+
+    /**
+     * Analyzes the currently active Solidity file and its imports.
+     * 
+     * @returns A promise resolving to processed vulnerabilities
+     * @throws Error if the current file is not a Solidity file or API request fails
+     */
+    public async analyzeCurrentSolidityFile(): Promise<Vulnerability[]> {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            throw new Error('No active editor found.');
+        }
+
+        const document = editor.document;
+        if (document.languageId !== 'solidity') {
+            throw new Error('The current file is not a Solidity file.');
+        }
+
+        const codeObject: CodeObject = {};
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        
+        if (!workspaceFolder) {
+            throw new Error('Please open a workspace folder containing the Solidity files.');
+        }
+        
+        const relativePath = path.relative(workspaceFolder.uri.fsPath, document.uri.fsPath);
+        codeObject[relativePath] = { content: document.getText() };
+
+        // Add imported files
+        await this.addImportedFiles(document.uri.fsPath, codeObject);
+
+        return await this.analyzeCode(codeObject);
+    }
+
+    /**
+     * Recursively adds imported Solidity files to the code object.
+     * 
+     * @param filePath The path of the file to analyze for imports
+     * @param codeObject The object to populate with imported files
+     * @param importedFiles Set of already imported files to avoid duplicates
+     */
+    private async addImportedFiles(
+        filePath: string, 
+        codeObject: CodeObject, 
+        importedFiles: Set<string> = new Set<string>()
+    ): Promise<void> {
+        const document = await vscode.workspace.openTextDocument(filePath);
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+
+        if (!workspaceFolder) {
+            return;
+        }
+        
+        const content = document.getText();
+        const importRegex = /import\s+(?:["'](?!@)(.+?\.sol)["']|{[^}]+}\s+from\s+["'](?!@)(.+?\.sol)["']);/g;
+        
+        let match;
+        while ((match = importRegex.exec(content)) !== null) {
+            const importPath = match[1] || match[2];
+            if (!importPath) continue;
+            
+            const absoluteImportPath = path.resolve(path.dirname(filePath), importPath);
+            const relativeImportPath = path.relative(workspaceFolder.uri.fsPath, absoluteImportPath);
+            
+            if (!importedFiles.has(relativeImportPath)) {
+                importedFiles.add(relativeImportPath);
+                try {
+                    const importDocument = await vscode.workspace.openTextDocument(absoluteImportPath);
+                    codeObject[relativeImportPath] = { content: importDocument.getText() };
+                    await this.addImportedFiles(absoluteImportPath, codeObject, importedFiles);
+                } catch (error) {
+                    console.warn(`Failed to open import file: ${absoluteImportPath}`, error);
+                }
+            }
+        }
+    }
+
+    /**
+     * Sends code to the API for analysis and processes the vulnerabilities.
+     * 
+     * @param codeObject Object containing code content by file path
+     * @returns A promise resolving to processed vulnerabilities
+     * @throws Error if the API request fails
+     */
+    private async analyzeCode(codeObject: CodeObject): Promise<Vulnerability[]> {
+        try {
+            const response = await fetch(this.apiURL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-KEY': this.apiKey || '',
+                    'Access-Control-Allow-Origin': '*',
+                },
+                body: JSON.stringify({ code: codeObject })
+            });
+
+            if (!response.ok) {
+                throw new Error(`API Request error: ${response.statusText}`);
+            }
+
+            const data = await response.json() as ApiResponse;
+            return handleVulnerabilities(data.result);
+        } catch (error) {
+            throw new Error(`Failed to analyze Solidity code: ${error}`);
+        }
+    }
+}
