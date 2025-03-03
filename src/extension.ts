@@ -112,6 +112,19 @@ export function activate(context: vscode.ExtensionContext) {
 					}
 				);
 				panel.webview.html = getWebviewContent(vulnerabilities);
+				
+				// Handle messages from the webview
+				panel.webview.onDidReceiveMessage(
+					message => {
+						switch (message.command) {
+							case 'dismissHighlights':
+								vscode.commands.executeCommand('extension.dismissHighlights');
+								return;
+						}
+					},
+					undefined,
+					context.subscriptions
+				);
 
 				highlightVulnerabilities(vulnerabilities);
 
@@ -202,6 +215,19 @@ export function activate(context: vscode.ExtensionContext) {
 					}
 				);
 				panel.webview.html = getWebviewContent(vulnerabilities);
+				
+				// Handle messages from the webview
+				panel.webview.onDidReceiveMessage(
+					message => {
+						switch (message.command) {
+							case 'dismissHighlights':
+								vscode.commands.executeCommand('extension.dismissHighlights');
+								return;
+						}
+					},
+					undefined,
+					context.subscriptions
+				);
 
 				highlightVulnerabilities(vulnerabilities);
 
@@ -211,22 +237,17 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	});
 
-	// Add a status bar item to dismiss all highlights
-	const editor = vscode.window.activeTextEditor;
-
-	if (editor) {
-		const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-		statusBarItem.text = 'Dismiss SA Highlights';
-		statusBarItem.command = 'extension.dismissAllHighlights';
-		statusBarItem.show();
-		vscode.commands.registerCommand('extension.dismissAllHighlights', () => {
+	let dismissHighlightsCommand = vscode.commands.registerCommand('extension.dismissHighlights', () => {
+		const editor = vscode.window.activeTextEditor;
+		console.debug('Dismissing highlights');
+		if (editor) {
 			editor.setDecorations(errorHighlightDecoration, []);
-		});
-		context.subscriptions.push(statusBarItem);
-	}
+		}
+	});
 
 	context.subscriptions.push(analyzeAllCommand);
 	context.subscriptions.push(analyzeCurrentFileCommand);
+	context.subscriptions.push(dismissHighlightsCommand);
 }
 
 function highlightVulnerabilities(vulnerabilities: Vulnerability[]) {
@@ -382,8 +403,10 @@ function getWebviewContent(vulnerabilities: Vulnerability[]): string {
 				li .impact { font-weight: bold; }
 				li .description { white-space: pre-wrap; display: none; }
 				.arrow { margin-right: 10px; }
+				#dismissButton { background-color: #d9534f; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 5px; }
 			</style>
 			<script>
+				const vscode = acquireVsCodeApi();
 				function toggleDescription(event) {
 					const description = event.currentTarget.parentElement.querySelector('.description');
 					const arrow = event.currentTarget.querySelector('.arrow');
@@ -395,15 +418,20 @@ function getWebviewContent(vulnerabilities: Vulnerability[]): string {
 						arrow.textContent = '▶';
 					}
 				}
+				function dismissHighlights() {
+					vscode.postMessage({ command: 'dismissHighlights' });
+				}
 				window.addEventListener('DOMContentLoaded', () => {
 					document.querySelectorAll('.toggle').forEach(item => {
 						item.addEventListener('click', toggleDescription);
 					});
+					document.getElementById('dismissButton').addEventListener('click', dismissHighlights);
 				});
 			</script>
 		</head>
 		<body>
 			<h1>Vulnerabilities</h1>
+			<button id="dismissButton">Dismiss Highlights</button>
 			<ul>
 				${vulnerabilityItems}
 			</ul>
