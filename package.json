@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/IARD-Solutions/Solidity-Analyzer"
   },
-  "version": "0.1.1",
+  "version": "0.1.2",
   "engines": {
     "vscode": "^1.96.0"
   },
@@ -93,7 +93,12 @@
         },
         "solidityAnalyzer.logLevel": {
           "type": "string",
-          "enum": ["debug", "info", "warn", "error"],
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
           "default": "info",
           "description": "Set the logging level for the extension"
         },
@@ -106,9 +111,23 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["Critical", "High", "Medium", "Low", "Informational", "Optimization"]
+            "enum": [
+              "Critical",
+              "High",
+              "Medium",
+              "Low",
+              "Informational",
+              "Optimization"
+            ]
           },
-          "default": ["Critical", "High", "Medium", "Low", "Informational", "Optimization"],
+          "default": [
+            "Critical",
+            "High",
+            "Medium",
+            "Low",
+            "Informational",
+            "Optimization"
+          ],
           "description": "Show vulnerabilities with these severity levels"
         },
         "solidityAnalyzer.highlightColors": {
