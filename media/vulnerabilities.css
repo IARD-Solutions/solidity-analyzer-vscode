@@ -1,0 +1,331 @@
+:root {
+  --critical-color: #d9534f;
+  --high-color: #f0ad4e;
+  --medium-color: #f7e359;
+  --low-color: #5bc0de;
+  --info-color: #5bc0de;
+  --optimization-color: #28a745;
+  
+  --animation-speed: 0.2s;
+}
+
+body.vscode-light {
+  --background-color: #f5f5f5;
+  --card-background: #ffffff;
+  --text-color: #333333;
+  --border-color: #e0e0e0;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --button-hover: #e0e0e0;
+}
+
+body.vscode-dark {
+  --background-color: #1e1e1e;
+  --card-background: #2d2d2d;
+  --text-color: #d4d4d4;
+  --border-color: #3e3e3e;
+  --shadow-color: rgba(0, 0, 0, 0.4);
+  --button-hover: #3e3e3e;
+}
+
+body {
+  padding: 0;
+  margin: 0;
+  font-family: var(--vscode-font-family);
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-size: var(--vscode-font-size);
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 100%;
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 12px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.5em;
+  display: flex;
+  align-items: center;
+}
+
+#vulnerability-count {
+  font-size: 0.7em;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  border-radius: 10px;
+  padding: 2px 8px;
+  margin-left: 10px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-container {
+  display: flex;
+  gap: 8px;
+}
+
+select {
+  background: var(--card-background);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Center content horizontally */
+  gap: 6px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+  transition: background-color var(--animation-speed) ease;
+  min-width: 140px; /* Add minimum width for better appearance */
+  text-align: center; /* Ensure text is centered */
+}
+
+.button:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.vulnerability-list {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.vulnerability-item {
+  margin-bottom: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: var(--card-background);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 5px var(--shadow-color);
+  transition: transform var(--animation-speed) ease, box-shadow var(--animation-speed) ease;
+}
+
+.vulnerability-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow-color);
+}
+
+.vulnerability-header {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  justify-content: space-between;
+  user-select: none;
+}
+
+.vulnerability-title {
+  font-weight: bold;
+  flex-grow: 1;
+  margin: 0;
+  font-size: 1.1em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.severity-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8em;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: normal;
+}
+
+.severity-badge.critical {
+  background-color: var(--critical-color);
+  color: white;
+}
+
+.severity-badge.high {
+  background-color: var(--high-color);
+  color: black;
+}
+
+.severity-badge.medium {
+  background-color: var(--medium-color);
+  color: black;
+}
+
+.severity-badge.low, .severity-badge.informational {
+  background-color: var(--low-color);
+  color: black;
+}
+
+.severity-badge.optimization {
+  background-color: var(--optimization-color);
+  color: white;
+}
+
+.arrow {
+  transition: transform var(--animation-speed) ease;
+}
+
+.arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.vulnerability-details {
+  padding: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--animation-speed) ease, padding var(--animation-speed) ease;
+}
+
+.vulnerability-details.expanded {
+  padding: 0 16px 16px;
+  max-height: 800px; /* adjust as needed */
+}
+
+.detail-row {
+  margin-bottom: 10px;
+}
+
+.detail-label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.detail-value {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.clickable {
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  gap: 8px;
+}
+
+.message-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--vscode-disabledForeground);
+}
+
+.message-container .codicon {
+  font-size: 2em;
+  margin-bottom: 16px;
+}
+
+.filters-container {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-label {
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+.toggle-button-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.toggle-button {
+  display: flex;
+  align-items: center;
+  justify-content: center; /* Add this to center the content horizontally */
+  gap: 6px;
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 0.9em;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all var(--animation-speed) ease;
+  user-select: none;
+  min-width: 110px; /* Add minimum width for more consistent button sizes */
+  text-align: center; /* Ensure text is centered */
+}
+
+.toggle-button .toggle-icon {
+  font-size: 0.9em;
+}
+
+.toggle-button.critical {
+  background-color: var(--critical-color);
+  color: white;
+}
+
+.toggle-button.high {
+  background-color: var(--high-color);
+  color: black;
+}
+
+.toggle-button.medium {
+  background-color: var(--medium-color);
+  color: black;
+}
+
+.toggle-button.low, .toggle-button.informational {
+  background-color: var(--low-color);
+  color: black;
+}
+
+.toggle-button.optimization {
+  background-color: var(--optimization-color);
+  color: white;
+}
+
+.toggle-button.disabled {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.toggle-button.disabled .toggle-icon {
+  visibility: hidden;
+}
+
+.toggle-button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px var(--shadow-color);
+}

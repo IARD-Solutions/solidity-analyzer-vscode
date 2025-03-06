@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { Vulnerability } from '../models/types';
+import * as path from 'path';
 
 /**
  * Manages the creation and handling of webviews for displaying vulnerabilities.
@@ -26,11 +27,13 @@ export class WebviewProvider {
             vscode.ViewColumn.Two,
             {
                 enableScripts: true,
-                localResourceRoots: [vscode.Uri.file(context.extensionPath)]
+                localResourceRoots: [vscode.Uri.file(context.extensionPath)],
+                retainContextWhenHidden: true
             }
         );
 
-        panel.webview.html = this.getWebviewContent(vulnerabilities);
+        // Set the webview's initial html content
+        panel.webview.html = this.getWebviewContent(vulnerabilities, panel.webview, context);
 
         // Handle messages from the webview
         panel.webview.onDidReceiveMessage(
@@ -42,6 +45,9 @@ export class WebviewProvider {
                     case 'focusOnVulnerability':
                         onFocusVulnerability(message.vulnerability);
                         return;
+                    case 'logError':
+                        console.error(`Webview error: ${message.error}`);
+                        return;
                 }
             },
             undefined,
@@ -52,112 +58,119 @@ export class WebviewProvider {
     }
 
     /**
-     * Generates the HTML content for the vulnerability webview.
+     * Get the webview content for the vulnerability display panel.
      * 
      * @param vulnerabilities The vulnerabilities to display
+     * @param webview The webview to create content for
+     * @param context The extension context
      * @returns The HTML content for the webview
      */
-    private getWebviewContent(vulnerabilities: Vulnerability[]): string {
-        const vulnerabilityItems = vulnerabilities.map((vuln, index) => {
-            const confidenceColor = this.getConfidenceColor(vuln.confidence);
-            const impactColor = this.getImpactColor(vuln.impact);
+    private getWebviewContent(
+        vulnerabilities: Vulnerability[],
+        webview: vscode.Webview,
+        context: vscode.ExtensionContext
+    ): string {
+        // Get resource paths
+        const cssUri = this.getResourceUri(webview, context, 'media', 'vulnerabilities.css');
+        const scriptUri = this.getResourceUri(webview, context, 'media', 'vulnerabilities.js');
+        const codiconsUri = this.getResourceUri(
+            webview, 
+            context, 
+            'node_modules', 
+            '@vscode/codicons', 
+            'dist', 
+            'codicon.css'
+        );
 
-            return `
-                <li data-vuln-index="${index}">
-                    <h2 class="toggle"><span class="arrow">▶</span>${vuln.check}</h2>
-                    <div class="vuln-details" data-vuln-index="${index}">
-                        <p class="impact" style="color: ${impactColor};">Impact: ${vuln.impact}</p>
-                        <p class="confidence" style="color: ${confidenceColor};">Confidence: ${vuln.confidence}</p>
-                        <p class="description clickable" data-vuln-index="${index}">${vuln.description}</p>
-                    </div>
-                </li>`;
-        }).join('');
-
-        return `
-            <!DOCTYPE html>
+        return `<!DOCTYPE html>
             <html lang="en">
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Vulnerabilities</title>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; background-color: #1e1e1e; color: #d4d4d4; }
-                    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-                    h1 { color: #d4d4d4; margin: 0; }
-                    ul { list-style-type: none; padding: 0; }
-                    li { background: #2d2d2d; margin: 10px 0; padding: 10px; border-radius: 5px; }
-                    li h2 { margin: 0; font-size: 1.2em; color: #d9534f; cursor: pointer; }
-                    li p { margin: 5px 0; }
-                    li .impact { font-weight: bold; }
-                    li .description { white-space: pre-wrap; display: none; }
-                    .clickable { cursor: pointer; }
-                    .clickable:hover { text-decoration: underline; }
-                    .arrow { margin-right: 10px; }
-                    #dismissButton { background-color: #d9534f; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 5px; }
-                </style>
-                <script>
-                    const vscode = acquireVsCodeApi();
-                    let vulnerabilities = ${JSON.stringify(vulnerabilities)};
-                    
-                    function toggleDescription(event) {
-                        const li = event.currentTarget.parentElement;
-                        const description = li.querySelector('.description');
-                        const arrow = event.currentTarget.querySelector('.arrow');
-                        
-                        if (description.style.display === 'none' || description.style.display === '') {
-                            description.style.display = 'block';
-                            arrow.textContent = '▼';
-                        } else {
-                            description.style.display = 'none';
-                            arrow.textContent = '▶';
-                        }
-                    }
-                    
-                    function dismissHighlights() {
-                        vscode.postMessage({ command: 'dismissHighlights' });
-                    }
-                    
-                    function focusOnVulnerability(index) {
-                        vscode.postMessage({
-                            command: 'focusOnVulnerability',
-                            vulnerabilityIndex: index,
-                            vulnerability: vulnerabilities[index]
-                        });
-                    }
-                    
-                    window.addEventListener('DOMContentLoaded', () => {
-                        document.querySelectorAll('.toggle').forEach(item => {
-                            item.addEventListener('click', toggleDescription);
-                        });
-                        
-                        document.getElementById('dismissButton').addEventListener('click', dismissHighlights);
-                        
-                        document.querySelectorAll('.clickable').forEach(item => {
-                            item.addEventListener('click', (e) => {
-                                // Get the index from the parent div
-                                const vulnDetails = e.target.closest('.vuln-details');
-                                if (vulnDetails) {
-                                    const index = parseInt(vulnDetails.getAttribute('data-vuln-index'), 10);
-                                    focusOnVulnerability(index);
-                                }
-                                
-                                // Stop event propagation to prevent parent elements from handling the click
-                                e.stopPropagation();
-                            });
-                        });
-                    });
-                </script>
+                <title>Solidity Vulnerabilities</title>
+                <link href="${codiconsUri}" rel="stylesheet" />
+                <link href="${cssUri}" rel="stylesheet" />
             </head>
-            <body>
-                <div class="header">
-                    <h1>Vulnerabilities</h1>
-                    <button id="dismissButton">Dismiss Highlights</button>
+            <body class="vscode-body">
+                <div class="container">
+                    <div class="header">
+                        <h1>Vulnerabilities <span id="vulnerability-count">${vulnerabilities.length}</span></h1>
+                        <div class="toolbar">
+                            <button id="dismiss-button" class="button" title="Dismiss all highlights">
+                                <span class="codicon codicon-clear-all"></span> Dismiss Highlights
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="filters-container">
+                        <div class="filter-group">
+                            <label class="filter-label">Confidence:</label>
+                            <select id="filter-confidence" aria-label="Filter by confidence">
+                                <option value="all">All Confidence</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label class="filter-label">Impact:</label>
+                            <div class="toggle-button-group" id="impact-toggles">
+                                <div class="toggle-button critical" data-impact="Critical">
+                                    <span class="toggle-icon codicon codicon-check"></span>
+                                    Critical
+                                </div>
+                                <div class="toggle-button high" data-impact="High">
+                                    <span class="toggle-icon codicon codicon-check"></span>
+                                    High
+                                </div>
+                                <div class="toggle-button medium" data-impact="Medium">
+                                    <span class="toggle-icon codicon codicon-check"></span>
+                                    Medium
+                                </div>
+                                <div class="toggle-button low" data-impact="Low">
+                                    <span class="toggle-icon codicon codicon-check"></span>
+                                    Low
+                                </div>
+                                <div class="toggle-button optimization" data-impact="Optimization">
+                                    <span class="toggle-icon codicon codicon-check"></span>
+                                    Optimization
+                                </div>
+                                <div class="toggle-button informational" data-impact="Informational">
+                                    <span class="toggle-icon codicon codicon-check"></span>
+                                    Informational
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                
+                    <div id="loading" class="loading" style="display: none;">
+                        <span class="codicon codicon-loading codicon-modifier-spin"></span>
+                        <span>Loading...</span>
+                    </div>
+                
+                    <div id="no-results" class="message-container" style="display: none;">
+                        <span class="codicon codicon-info"></span>
+                        <p>No vulnerabilities match the current filters</p>
+                    </div>
+                
+                    <ul id="vulnerability-list" class="vulnerability-list"></ul>
                 </div>
-                <ul>
-                    ${vulnerabilityItems}
-                </ul>
+                
+                <script>
+                    const vulnerabilities = ${JSON.stringify(vulnerabilities)};
+                </script>
+                <script src="${scriptUri}"></script>
             </body>
             </html>`;
+    }
+    
+    /**
+     * Helper function to create URIs for webview resources
+     */
+    private getResourceUri(webview: vscode.Webview, context: vscode.ExtensionContext, ...pathSegments: string[]): vscode.Uri {
+        const resourcePath = path.join(context.extensionPath, ...pathSegments);
+        return webview.asWebviewUri(vscode.Uri.file(resourcePath));
     }
 
     /**
