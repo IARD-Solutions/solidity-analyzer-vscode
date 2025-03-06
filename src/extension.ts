@@ -85,10 +85,55 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     const dismissHighlightsCommand = vscode.commands.registerCommand(
-        'extension.dismissHighlights', 
+        'solidity-analyzer.dismissHighlights', 
         () => {
-            logger.debug('Dismissing vulnerability highlights');
             decorationManager.dismissHighlights();
+        }
+    );
+    
+    // Fix the command to properly handle the parameter
+    const dismissSingleHighlightCommand = vscode.commands.registerCommand(
+        'solidity-analyzer.dismissSingleHighlight',
+        (decorationId) => {
+            console.log("Raw decoration ID received:", decorationId);
+            
+            // Handle the parameter regardless of how it's passed
+            let id = decorationId;
+            
+            if (Array.isArray(decorationId)) {
+                id = decorationId[0];
+            } else if (typeof decorationId === 'string') {
+                // Try to remove any quotes that might wrap the ID
+                id = decorationId.replace(/^["'](.*)["']$/, '$1');
+                
+                // Try to decode if it's URL encoded
+                try {
+                    if (id.includes('%')) {
+                        id = decodeURIComponent(id);
+                    }
+                } catch (e) {
+                    // If decoding fails, use the original
+                    console.error("Error decoding ID:", e);
+                }
+                
+                // Try to parse as JSON if it looks like a JSON string
+                try {
+                    if (id.startsWith('[') || id.startsWith('{')) {
+                        const parsed = JSON.parse(id);
+                        if (Array.isArray(parsed) && parsed.length > 0) {
+                            id = parsed[0];
+                        } else if (typeof parsed === 'string') {
+                            id = parsed;
+                        }
+                    }
+                } catch (e) {
+                    // Not valid JSON, use as is
+                    console.log("Not valid JSON, using as is");
+                }
+            }
+            
+            console.log(`Final ID to dismiss: ${id}`);
+            decorationManager.dismissSingleHighlight(id);
         }
     );
 
@@ -115,6 +160,7 @@ export function activate(context: vscode.ExtensionContext) {
         analyzeAllCommand,
         analyzeCurrentFileCommand,
         dismissHighlightsCommand,
+        dismissSingleHighlightCommand,
         showOutputCommand,
         fileWatcher,
         { dispose: () => cleanupServices() }
