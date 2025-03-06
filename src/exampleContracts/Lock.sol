@@ -36,7 +36,13 @@ contract Lock {
     }
 
     // Function with tx.origin vulnerability
-    function transferTo(address payable _to, uint256 _amount) public {
+    function transferTo1(address payable _to, uint256 _amount) public {
+        require(tx.origin == owner, "Only owner can transfer");
+        _to.transfer(_amount);
+    }
+
+    // Function with tx.origin vulnerability
+    function transferTo2(address payable _to, uint256 _amount) public {
         require(tx.origin == owner, "Only owner can transfer");
         _to.transfer(_amount);
     }
