@@ -173,41 +173,4 @@ export class WebviewProvider {
         return webview.asWebviewUri(vscode.Uri.file(resourcePath));
     }
 
-    /**
-     * Gets the display color for a confidence level.
-     */
-    private getConfidenceColor(confidence: string): string {
-        switch (confidence) {
-            case 'High':
-                return '#d9534f'; // red
-            case 'Medium':
-                return '#f0ad4e'; // orange
-            case 'Low':
-                return '#5bc0de'; // blue
-            case 'Informational':
-                return '#5bc0de'; // blue
-            default:
-                return '#d4d4d4'; // default color
-        }
-    }
-
-    /**
-     * Gets the display color for an impact level.
-     */
-    private getImpactColor(impact: string): string {
-        switch (impact) {
-            case 'Critical':
-                return '#d9534f'; // red
-            case 'High':
-                return '#f0ad4e'; // orange
-            case 'Medium':
-                return '#f7e359'; // yellow
-            case 'Low':
-                return '#5bc0de'; // blue
-            case 'Informational':
-                return '#5bc0de'; // blue
-            default:
-                return '#d4d4d4'; // default color
-        }
-    }
 }
