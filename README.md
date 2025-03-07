@@ -11,6 +11,8 @@ Welcome to the Solidity Analyzer extension for Visual Studio Code. This extensio
 - Dismiss individual vulnerability highlights.
 - Status bar information about analysis progress.
 
+![Solidity Analyzer Example](images/solidity-analyzer-example.png)
+
 ## Requirements
 
 - Visual Studio Code version 1.96.0 or higher.
