@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import { Vulnerability } from '../models/types';
+import { LoggingService } from './loggingService';
 
 /**
  * Manages editor decorations for highlighting vulnerable code.
  */
 export class DecorationManager {
     private readonly errorHighlightDecoration: vscode.TextEditorDecorationType;
+    private readonly logger: LoggingService;
     
     // Registry of all active decorations, keyed by UUID
     private decorationRegistry = new Map<string, {
@@ -23,7 +25,8 @@ export class DecorationManager {
     /**
      * Creates a new DecorationManager instance.
      */
-    constructor() {
+    constructor(logger: LoggingService) {
+        this.logger = logger;
         this.errorHighlightDecoration = vscode.window.createTextEditorDecorationType({
             backgroundColor: 'rgba(255,0,0,0.3)',
             overviewRulerColor: 'red',
@@ -86,7 +89,7 @@ export class DecorationManager {
                 descriptions: item.descriptions
             });
             
-            console.log(`Created decoration ${decorationId} for range ${rangeKey}`);
+            this.logger.debug(`Created decoration ${decorationId} for range ${rangeKey}`);
         }
         
         // Only update if this is still the latest operation
@@ -96,7 +99,7 @@ export class DecorationManager {
             
             // Apply decorations to the editor
             editor.setDecorations(this.errorHighlightDecoration, decorations);
-            console.log(`Applied ${decorations.length} decorations to editor ${editorId}`);
+            this.logger.debug(`Applied ${decorations.length} decorations to editor ${editorId}`);
         }
         
         return editor;
@@ -162,7 +165,7 @@ export class DecorationManager {
                     }
                 }
             } catch (error) {
-                console.error('Error focusing on vulnerability:', error);
+                this.logger.error('Error focusing on vulnerability:', error);
             }
         }
     }
@@ -233,24 +236,24 @@ export class DecorationManager {
             descriptions: [description]
         });
         
-        console.log(`Created decoration ${decorationId} for range ${startLine}-${endLine}`);
+        this.logger.debug(`Created decoration ${decorationId} for range ${startLine}-${endLine}`);
     }
 
     /**
      * Dismisses a single highlight by its decoration ID.
      */
     public dismissSingleHighlight(decorationId: string): void {
-        console.log(`Trying to dismiss highlight with ID: ${decorationId}`);
+        this.logger.debug(`Trying to dismiss highlight with ID: ${decorationId}`);
         
         if (!decorationId) {
-            console.log("No decoration ID provided");
+            this.logger.warn("No decoration ID provided for dismissal");
             return;
         }
         
         const decoration = this.decorationRegistry.get(decorationId);
         if (!decoration) {
-            console.log(`No decoration found with ID: ${decorationId}`);
-            console.log("Available decoration IDs:", Array.from(this.decorationRegistry.keys()));
+            this.logger.warn(`No decoration found with ID: ${decorationId}`);
+            this.logger.debug("Available decoration IDs:", Array.from(this.decorationRegistry.keys()));
             return;
         }
 
@@ -273,9 +276,9 @@ export class DecorationManager {
             // Refresh all decorations for the editor
             this.refreshEditorDecorations(editor);
             
-            console.log(`Successfully dismissed highlight with ID: ${decorationId}`);
+            this.logger.info(`Successfully dismissed highlight with ID: ${decorationId}`);
         } catch (e) {
-            console.error(`Error dismissing highlight: ${e}`);
+            this.logger.error(`Error dismissing highlight: ${e}`);
         }
     }
 
@@ -295,7 +298,7 @@ export class DecorationManager {
             editor.setDecorations(this.errorHighlightDecoration, []);
         }
         
-        console.log("All highlights dismissed");
+        this.logger.info("All highlights dismissed");
     }
     
     /**
@@ -319,7 +322,7 @@ export class DecorationManager {
         // Clear decorations from the editor
         editor.setDecorations(this.errorHighlightDecoration, []);
         
-        console.log(`Dismissed all highlights in editor ${editorId}`);
+        this.logger.debug(`Dismissed all highlights in editor ${editorId}`);
     }
     
     /**
@@ -350,7 +353,7 @@ export class DecorationManager {
         
         // Apply decorations
         editor.setDecorations(this.errorHighlightDecoration, decorations);
-        console.log(`Refreshed ${decorations.length} decorations in editor ${editorId}`);
+        this.logger.debug(`Refreshed ${decorations.length} decorations in editor ${editorId}`);
     }
     
     /**
@@ -513,6 +516,8 @@ export class DecorationManager {
             if (files.length > 0) {
                 document = await vscode.workspace.openTextDocument(files[0]);
                 await vscode.window.showTextDocument(document, { preview: false });
+            } else {
+                this.logger.warn(`Could not find file: ${filename}`);
             }
         }
     }

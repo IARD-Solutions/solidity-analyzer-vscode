@@ -1,11 +1,23 @@
 import * as vscode from 'vscode';
 import { Vulnerability } from '../models/types';
 import * as path from 'path';
+import { LoggingService } from './loggingService';
 
 /**
  * Manages the creation and handling of webviews for displaying vulnerabilities.
  */
 export class WebviewProvider {
+    private readonly logger: LoggingService;
+
+    /**
+     * Creates a new WebviewProvider instance.
+     * 
+     * @param logger The logging service
+     */
+    constructor(logger: LoggingService) {
+        this.logger = logger;
+    }
+
     /**
      * Creates a webview panel to display vulnerabilities.
      * 
@@ -21,6 +33,8 @@ export class WebviewProvider {
         onFocusVulnerability: (vulnerability: Vulnerability) => void,
         onDismissHighlights: () => void
     ): vscode.WebviewPanel {
+        this.logger.debug(`Creating webview panel to display ${vulnerabilities.length} vulnerabilities`);
+        
         const panel = vscode.window.createWebviewPanel(
             'solidityAnalyzer',
             'Solidity Analyzer',
@@ -34,26 +48,32 @@ export class WebviewProvider {
 
         // Set the webview's initial html content
         panel.webview.html = this.getWebviewContent(vulnerabilities, panel.webview, context);
+        this.logger.debug('Webview HTML content generated');
 
         // Handle messages from the webview
         panel.webview.onDidReceiveMessage(
             message => {
                 switch (message.command) {
                     case 'dismissHighlights':
+                        this.logger.info('User requested to dismiss all highlights from webview');
                         onDismissHighlights();
                         return;
                     case 'focusOnVulnerability':
+                        this.logger.info(`User requested to focus on vulnerability: ${message.vulnerability.id || 'unknown'}`);
                         onFocusVulnerability(message.vulnerability);
                         return;
                     case 'logError':
-                        console.error(`Webview error: ${message.error}`);
+                        this.logger.error(`Webview error: ${message.error}`);
                         return;
+                    default:
+                        this.logger.warn(`Unknown message command received from webview: ${message.command}`);
                 }
             },
             undefined,
             context.subscriptions
         );
 
+        this.logger.info('Webview panel created successfully');
         return panel;
     }
 

@@ -32,6 +32,15 @@ You can install this extension through the VS Code marketplace:
 3. Select the desired analysis option
 4. View results in the editor and detailed panel
 
+## Debugging and Logs
+
+If you encounter any issues with the extension, you can access the logs via the Output Panel:
+
+- Go to View → Output (or press Ctrl+Shift+U)
+- Select "Solidity Analyzer" from the dropdown menu at the top of the Output panel
+
+The log level can be configured in the extension settings (`solidityAnalyzer.logLevel`).
+
 ## Extension Settings
 
 This extension contributes the following settings:

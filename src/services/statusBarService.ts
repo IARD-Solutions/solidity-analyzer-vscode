@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { Vulnerability } from '../models/types';
+import { LoggingService } from './loggingService';
 
 /**
  * Service for managing the extension's status bar integration.
@@ -8,8 +9,10 @@ export class StatusBarService {
     private statusBarItem: vscode.StatusBarItem;
     private vulnerabilityCount: number = 0;
     private configListener: vscode.Disposable;
+    private readonly logger: LoggingService;
 
-    constructor() {
+    constructor(logger: LoggingService) {
+        this.logger = logger;
         this.statusBarItem = vscode.window.createStatusBarItem(
             vscode.StatusBarAlignment.Right, 
             100
@@ -18,12 +21,15 @@ export class StatusBarService {
         this.statusBarItem.tooltip = 'Analyze Solidity vulnerabilities';
         this.refresh();
         
+        this.logger.debug('StatusBarService initialized');
+        
         // Check if should be hidden based on config
         this.updateVisibility();
         
         // Listen for configuration changes
         this.configListener = vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('solidityAnalyzer.hideStatusBar')) {
+                this.logger.debug('Configuration changed for statusBar visibility');
                 this.updateVisibility();
             }
         });
@@ -37,8 +43,10 @@ export class StatusBarService {
         const hideStatusBar = config.get<boolean>('hideStatusBar', false);
         
         if (hideStatusBar) {
+            this.logger.debug('Hiding status bar based on configuration');
             this.statusBarItem.hide();
         } else {
+            this.logger.debug('Showing status bar based on configuration');
             this.statusBarItem.show();
         }
     }
@@ -48,6 +56,7 @@ export class StatusBarService {
      */
     public updateVulnerabilityCount(vulnerabilities: Vulnerability[]): void {
         this.vulnerabilityCount = vulnerabilities.length;
+        this.logger.debug(`Updating vulnerability count to ${this.vulnerabilityCount}`);
         this.refresh();
         
         // Show more detailed breakdown in tooltip
@@ -128,6 +137,7 @@ export class StatusBarService {
      * Sets the status bar to show a scanning indicator.
      */
     public showScanning(): void {
+        this.logger.info('Analysis started - showing scanning indicator');
         this.statusBarItem.text = `$(sync~spin) Analyzing...`;
         this.statusBarItem.tooltip = 'Analyzing Solidity files for vulnerabilities...';
         this.statusBarItem.backgroundColor = undefined;
@@ -140,6 +150,7 @@ export class StatusBarService {
      * Clean up resources.
      */
     public dispose(): void {
+        this.logger.debug('Disposing StatusBarService');
         this.statusBarItem.dispose();
         this.configListener.dispose();
     }

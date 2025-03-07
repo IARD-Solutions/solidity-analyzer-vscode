@@ -32,10 +32,10 @@ let lastAnalyzedVulnerabilities: Vulnerability[] = [];
 export function activate(context: vscode.ExtensionContext) {
     // Initialize services
     logger = new LoggingService();
-    analyzer = new SolidityAnalyzer(apiURL, apiKey);
-    decorationManager = new DecorationManager();
-    webviewProvider = new WebviewProvider();
-    statusBarService = new StatusBarService();
+    analyzer = new SolidityAnalyzer(apiURL, apiKey, logger);
+    decorationManager = new DecorationManager(logger);
+    webviewProvider = new WebviewProvider(logger);
+    statusBarService = new StatusBarService(logger);
 
     logger.info('Solidity Analyzer extension activated');
     
