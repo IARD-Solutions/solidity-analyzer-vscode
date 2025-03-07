@@ -115,7 +115,14 @@ export class DecorationManager {
         // Dismiss existing highlights first
         this.dismissHighlights();
         
+        const vulnId = vulnerability.id || 
+            (vulnerability.title ? `"${vulnerability.title}"` : 
+            (vulnerability.description ? `desc: "${vulnerability.description.substring(0, 30)}..."` : 'unknown'));
+        
+        this.logger.info(`Focusing on vulnerability: ${vulnId}`);
+        
         if (!vulnerability.lines || vulnerability.lines.length === 0) {
+            this.logger.warn(`Vulnerability ${vulnId} has no line information to highlight`);
             return;
         }
         

@@ -12,6 +12,11 @@ export interface Vulnerability {
     confidence: "High" | "Medium" | "Low" | string;
     /** Lines affected by this vulnerability */
     lines?: { contract: string, lines: number[] }[];
+    id?: string;
+    title?: string;
+    category?: string;
+    function?: string;
+    detector?: string;
 }
 
 /**

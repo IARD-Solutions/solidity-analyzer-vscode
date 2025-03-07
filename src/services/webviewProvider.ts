@@ -59,7 +59,12 @@ export class WebviewProvider {
                         onDismissHighlights();
                         return;
                     case 'focusOnVulnerability':
-                        this.logger.info(`User requested to focus on vulnerability: ${message.vulnerability.id || 'unknown'}`);
+                        // Improve the vulnerability identification in logs
+                        const vulnInfo = message.vulnerability;
+                        const vulnId = vulnInfo.id || 
+                            (vulnInfo.title ? `"${vulnInfo.title}"` : 
+                             (vulnInfo.description ? `desc: "${vulnInfo.description.substring(0, 30)}..."` : 'unknown'));
+                        this.logger.info(`User requested to focus on vulnerability: ${vulnId}`);
                         onFocusVulnerability(message.vulnerability);
                         return;
                     case 'logError':
