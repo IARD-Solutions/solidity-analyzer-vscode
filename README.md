@@ -58,6 +58,10 @@ Please report any issues you encounter, or any feedback you might have, by email
 
 ## Release Notes
 
+### 0.1.4
+
+- Updated Logging capabilities
+
 ### 0.1.3
 
 - Added better highlight handling
