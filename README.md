@@ -35,6 +35,11 @@ You can install this extension through the VS Code marketplace:
 This extension contributes the following settings:
 
 - `solidityAnalyzer.analyzeNodeModules`: Enable/disable analysis of Solidity files in the `node_modules` folder.
+- `solidityAnalyzer.logLevel`: Set the logging level for the extension (`debug`, `info`, `warn`, `error`).
+- `solidityAnalyzer.autoAnalyzeOnSave`: Automatically run analysis when saving Solidity files.
+- `solidityAnalyzer.filterSeverity`: Show vulnerabilities with selected severity levels (Critical, High, Medium, Low, Informational, Optimization).
+- `solidityAnalyzer.highlightColors`: Custom highlight colors for different vulnerability severities.
+- `solidityAnalyzer.hideStatusBar`: Hide the Solidity Analyzer status bar item.
 
 ## Known Issues
 
