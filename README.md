@@ -4,12 +4,13 @@ Welcome to the Solidity Analyzer extension for Visual Studio Code. This extensio
 
 ## Features
 
-- Analyze all Solidity files in the current workspace.
-- Analyze the currently open Solidity file.
-- Highlight vulnerabilities directly in the code editor.
-- Display detailed analysis results in a webview panel.
-- Dismiss individual vulnerability highlights.
-- Status bar information about analysis progress.
+- **Security Analysis**: Detect potential vulnerabilities and security issues in Solidity code
+- **Code Linting**: Identify style issues, best practices, and gas optimization opportunities
+- **Detailed Reports**: View comprehensive analysis with categorized and prioritized issues
+- **In-Editor Highlighting**: See issues directly in your code with severity-colored highlights
+- **Code Navigation**: Jump directly to problem areas in your codebase
+- **Configurable Filters**: Filter results by severity, confidence level, or category
+- **Status Bar Integration**: Monitor analysis status and quickly access results
 
 ![Solidity Analyzer Example](images/solidity-analyzer-example.png)
 
@@ -31,6 +32,10 @@ You can install this extension through the VS Code marketplace:
 2. Use the command palette (Ctrl+Shift+P) and search for "Solidity Analyzer"
 3. Select the desired analysis option
 4. View results in the editor and detailed panel
+
+You can also:
+- Click the shield icon in the status bar to analyze the current file
+- Configure auto-analysis on save in the extension settings
 
 ## Debugging and Logs
 
@@ -57,6 +62,24 @@ This extension contributes the following settings:
 Please report any issues you encounter, or any feedback you might have, by email at iard.solutions@gmail.com
 
 ## Release Notes
+
+### 0.2.0
+
+- **Linting Support**: Added integrated Solidity linter to identify coding standards issues and style violations
+- **Enhanced UI**:
+  - Redesigned interface with improved organization of issues by severity and category
+  - Added color-coded category indicators for better visual classification
+  - Improved focus button with visual feedback
+- **Bug Fixes**:
+  - Fixed vulnerability highlighting to use the most specific line range
+  - Improved multi-line highlighting to display as a cohesive block
+  - Fixed issue with multiple panels opening on repeated analyses
+  - Enhanced file resolution logic for better navigation to issues
+- **Status Bar Improvements**:
+  - Added detailed tooltips showing breakdown of issues by severity and category
+  - Click to re-analyze current file
+  - Shows combined count of vulnerabilities and linter issues
+- **Performance**: Optimized rendering of large result sets
 
 ### 0.1.4
 
