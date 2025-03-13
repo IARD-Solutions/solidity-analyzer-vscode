@@ -1,157 +1,148 @@
 import * as vscode from 'vscode';
-import { Vulnerability } from '../models/types';
+import { Vulnerability, LinterResult } from '../models/types';
 import { LoggingService } from './loggingService';
 
 /**
- * Service for managing the extension's status bar integration.
+ * Manages the extension's status bar items.
  */
 export class StatusBarService {
     private statusBarItem: vscode.StatusBarItem;
-    private vulnerabilityCount: number = 0;
-    private configListener: vscode.Disposable;
     private readonly logger: LoggingService;
 
+    /**
+     * Creates a new StatusBarService instance.
+     * 
+     * @param logger The logging service
+     */
     constructor(logger: LoggingService) {
         this.logger = logger;
-        this.statusBarItem = vscode.window.createStatusBarItem(
-            vscode.StatusBarAlignment.Right, 
-            100
-        );
+        
+        this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
+        // Change command to re-analyze current file when clicked
         this.statusBarItem.command = 'extension.analyzeCurrentSolidityFile';
-        this.statusBarItem.tooltip = 'Analyze Solidity vulnerabilities';
         this.refresh();
+        this.statusBarItem.show();
         
         this.logger.debug('StatusBarService initialized');
-        
-        // Check if should be hidden based on config
-        this.updateVisibility();
-        
-        // Listen for configuration changes
-        this.configListener = vscode.workspace.onDidChangeConfiguration(e => {
-            if (e.affectsConfiguration('solidityAnalyzer.hideStatusBar')) {
-                this.logger.debug('Configuration changed for statusBar visibility');
-                this.updateVisibility();
-            }
-        });
     }
 
     /**
-     * Updates the status bar visibility based on configuration.
-     */
-    private updateVisibility(): void {
-        const config = vscode.workspace.getConfiguration('solidityAnalyzer');
-        const hideStatusBar = config.get<boolean>('hideStatusBar', false);
-        
-        if (hideStatusBar) {
-            this.logger.debug('Hiding status bar based on configuration');
-            this.statusBarItem.hide();
-        } else {
-            this.logger.debug('Showing status bar based on configuration');
-            this.statusBarItem.show();
-        }
-    }
-
-    /**
-     * Updates the status bar with the latest vulnerability count.
-     */
-    public updateVulnerabilityCount(vulnerabilities: Vulnerability[]): void {
-        this.vulnerabilityCount = vulnerabilities.length;
-        this.logger.debug(`Updating vulnerability count to ${this.vulnerabilityCount}`);
-        this.refresh();
-        
-        // Show more detailed breakdown in tooltip
-        const breakdown = this.getVulnerabilityBreakdown(vulnerabilities);
-        this.statusBarItem.tooltip = 'Solidity Security Analysis\n\n' + 
-            `Total issues: ${this.vulnerabilityCount}\n` +
-            `Critical: ${breakdown.Critical}\n` +
-            `High: ${breakdown.High}\n` +
-            `Medium: ${breakdown.Medium}\n` +
-            `Low: ${breakdown.Low}\n` +
-            `Informational: ${breakdown.Informational}`;
-            
-        // Update visibility in case setting changed
-        this.updateVisibility();
-    }
-
-    /**
-     * Refreshes the status bar display.
-     */
-    public refresh(): void {
-        if (this.vulnerabilityCount > 0) {
-            this.statusBarItem.text = `$(shield) ${this.vulnerabilityCount} Issues`;
-            this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-        } else {
-            this.statusBarItem.text = `$(shield) Solidity Analyzer`;
-            this.statusBarItem.backgroundColor = undefined;
-        }
-        
-        // Update visibility in case setting changed
-        this.updateVisibility();
-    }
-
-    /**
-     * Shows the status bar item (unless hidden by configuration).
-     */
-    public show(): void {
-        const config = vscode.workspace.getConfiguration('solidityAnalyzer');
-        const hideStatusBar = config.get<boolean>('hideStatusBar', false);
-        
-        if (!hideStatusBar) {
-            this.statusBarItem.show();
-        }
-    }
-
-    /**
-     * Hides the status bar item.
-     */
-    public hide(): void {
-        this.statusBarItem.hide();
-    }
-
-    /**
-     * Gets stats about vulnerability severity levels.
-     */
-    private getVulnerabilityBreakdown(vulnerabilities: Vulnerability[]): Record<string, number> {
-        const result: Record<string, number> = {
-            Critical: 0,
-            High: 0,
-            Medium: 0,
-            Low: 0,
-            Informational: 0
-        };
-        
-        vulnerabilities.forEach(vuln => {
-            const impact = vuln.impact as keyof typeof result;
-            if (impact in result) {
-                result[impact]++;
-            } else {
-                // Default to Low if unknown impact level
-                result.Low++;
-            }
-        });
-        
-        return result;
-    }
-
-    /**
-     * Sets the status bar to show a scanning indicator.
+     * Shows scanning status in the status bar.
      */
     public showScanning(): void {
-        this.logger.info('Analysis started - showing scanning indicator');
-        this.statusBarItem.text = `$(sync~spin) Analyzing...`;
-        this.statusBarItem.tooltip = 'Analyzing Solidity files for vulnerabilities...';
-        this.statusBarItem.backgroundColor = undefined;
-        
-        // Update visibility in case setting changed
-        this.updateVisibility();
+        this.statusBarItem.text = '$(sync~spin) Scanning Solidity...';
+        this.statusBarItem.tooltip = 'Scanning for Solidity vulnerabilities';
+        this.statusBarItem.show();
     }
 
     /**
-     * Clean up resources.
+     * Updates the status bar with the vulnerability count.
+     * 
+     * @param vulnerabilities The list of vulnerabilities
+     * @param linterResults The list of linter issues (optional)
+     */
+    public updateVulnerabilityCount(vulnerabilities: Vulnerability[], linterResults: LinterResult[] = []): void {
+        const vulnCount = vulnerabilities.length;
+        const linterCount = linterResults.length;
+        const totalCount = vulnCount + linterCount;
+        
+        if (totalCount === 0) {
+            this.statusBarItem.text = '$(shield) No Issues';
+            this.statusBarItem.tooltip = 'No Solidity issues detected. Click to re-analyze current file.';
+        } else {
+            this.statusBarItem.text = `$(shield) ${totalCount} Issues`;
+            
+            // Create a detailed tooltip showing the breakdown
+            let tooltip = '';
+            
+            // Vulnerabilities breakdown by impact
+            if (vulnCount > 0) {
+                // Count vulnerabilities by impact
+                const impactCounts = this.countByProperty(vulnerabilities, 'impact');
+                tooltip += `${vulnCount} Vulnerabilities:\n`;
+                
+                Object.entries(impactCounts)
+                    .sort(([a], [b]) => this.compareImpacts(a, b))
+                    .forEach(([impact, count]) => {
+                        tooltip += `  • ${impact}: ${count}\n`;
+                    });
+                
+                if (linterCount > 0) tooltip += '\n';
+            }
+            
+            // Linter issues breakdown by category
+            if (linterCount > 0) {
+                // Count linter issues by category
+                const categoryCounts = this.countByProperty(linterResults, 'category');
+                tooltip += `${linterCount} Linter Issues:\n`;
+                
+                Object.entries(categoryCounts)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .forEach(([category, count]) => {
+                        tooltip += `  • ${category || 'Other'}: ${count}\n`;
+                    });
+            }
+            
+            // Add hint about clicking to re-analyze
+            tooltip += '\nClick to re-analyze current file';
+            
+            this.statusBarItem.tooltip = tooltip;
+        }
+        
+        this.statusBarItem.show();
+        this.logger.debug(`Status bar updated with ${totalCount} total issues`);
+    }
+
+    /**
+     * Count items by a specific property value
+     * 
+     * @param items The items to count
+     * @param property The property to count by
+     * @returns An object with counts by property value
+     */
+    private countByProperty<T>(items: T[], property: keyof T): { [key: string]: number } {
+        const counts: { [key: string]: number } = {};
+        
+        items.forEach(item => {
+            const value = String(item[property] || 'Unknown');
+            counts[value] = (counts[value] || 0) + 1;
+        });
+        
+        return counts;
+    }
+    
+    /**
+     * Compare impact levels to sort them by severity
+     */
+    private compareImpacts(a: string, b: string): number {
+        const order: Record<string, number> = {
+            'Critical': 0,
+            'High': 1,
+            'Medium': 2,
+            'Low': 3,
+            'Optimization': 4,
+            'Informational': 5
+        };
+        
+        const orderA = a in order ? order[a] : 999;
+        const orderB = b in order ? order[b] : 999;
+        
+        return orderA - orderB;
+    }
+
+    /**
+     * Resets the status bar to the default state.
+     */
+    public refresh(): void {
+        this.statusBarItem.text = '$(shield) Solidity Analyzer';
+        this.statusBarItem.tooltip = 'Analyze Solidity Code. Click to analyze current file.';
+        this.statusBarItem.show();
+    }
+
+    /**
+     * Disposes of the status bar item.
      */
     public dispose(): void {
-        this.logger.debug('Disposing StatusBarService');
         this.statusBarItem.dispose();
-        this.configListener.dispose();
     }
 }

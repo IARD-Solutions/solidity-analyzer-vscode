@@ -242,12 +242,10 @@ export class DecorationManager {
         // Store hover message for later use
         this.hoverMessages.set(id, hoverMessage);
 
-        // Create decoration based on impact level
+        // Create decoration based on impact level - removing borders
         const decorationType = vscode.window.createTextEditorDecorationType({
             backgroundColor: this.getBackgroundColorForImpact(vulnerability.impact),
-            borderWidth: '1px',
-            borderStyle: 'solid',
-            borderColor: this.getBorderColorForImpact(vulnerability.impact),
+            // Remove border properties to prevent borders between lines
             overviewRulerColor: this.getRulerColorForImpact(vulnerability.impact),
             overviewRulerLane: vscode.OverviewRulerLane.Right,
             after: {
@@ -287,12 +285,10 @@ export class DecorationManager {
         // Store hover message for later use
         this.hoverMessages.set(id, hoverMessage);
 
-        // Create decoration based on category
+        // Create decoration based on category - removing borders
         const decorationType = vscode.window.createTextEditorDecorationType({
             backgroundColor: this.getBackgroundColorForCategory(linterIssue.category),
-            borderWidth: '1px',
-            borderStyle: 'solid',
-            borderColor: this.getBorderColorForCategory(linterIssue.category),
+            // Remove border properties to prevent borders between lines
             overviewRulerColor: this.getRulerColorForCategory(linterIssue.category),
             overviewRulerLane: vscode.OverviewRulerLane.Right,
             after: {
@@ -332,19 +328,55 @@ export class DecorationManager {
                 if (relativePath.endsWith(location.contract) || location.contract.endsWith(relativePath)) {
                     const decorationsArray: vscode.DecorationOptions[] = [];
                     
-                    // Create decoration for each affected line
-                    for (const line of location.lines) {
-                        // Convert from 1-based to 0-based line number if needed
-                        const targetLine = Math.max(0, line - 1);
+                    // Sort lines to identify consecutive ranges
+                    const sortedLines = [...location.lines].sort((a, b) => a - b);
+                    
+                    // Group consecutive lines
+                    let currentRange: { start: number, end: number } | null = null;
+                    
+                    for (let i = 0; i < sortedLines.length; i++) {
+                        const line = sortedLines[i];
+                        // Convert from 1-based to 0-based line numbers
+                        const lineIndex = Math.max(0, line - 1);
                         
-                        if (targetLine < editor.document.lineCount) {
-                            const lineText = editor.document.lineAt(targetLine);
+                        // Skip if line is beyond document length
+                        if (lineIndex >= editor.document.lineCount) continue;
+                        
+                        // Start a new range or extend current range
+                        if (currentRange === null) {
+                            currentRange = { start: lineIndex, end: lineIndex };
+                        } else if (lineIndex === currentRange.end + 1) {
+                            // Consecutive line, extend the range
+                            currentRange.end = lineIndex;
+                        } else {
+                            // Non-consecutive line, finish current range and start a new one
+                            if (currentRange.start <= currentRange.end && currentRange.end < editor.document.lineCount) {
+                                // Create decoration for the completed range
+                                const rangeStart = editor.document.lineAt(currentRange.start).range.start;
+                                const rangeEnd = editor.document.lineAt(currentRange.end).range.end;
+                                
+                                decorationsArray.push({
+                                    range: new vscode.Range(rangeStart, rangeEnd),
+                                    hoverMessage: hoverMessage
+                                });
+                            }
                             
-                            decorationsArray.push({
-                                range: lineText.range,
-                                hoverMessage: hoverMessage
-                            });
+                            // Start a new range
+                            currentRange = { start: lineIndex, end: lineIndex };
                         }
+                    }
+                    
+                    // Handle the last range
+                    if (currentRange !== null && 
+                        currentRange.start <= currentRange.end && 
+                        currentRange.end < editor.document.lineCount) {
+                        const rangeStart = editor.document.lineAt(currentRange.start).range.start;
+                        const rangeEnd = editor.document.lineAt(currentRange.end).range.end;
+                        
+                        decorationsArray.push({
+                            range: new vscode.Range(rangeStart, rangeEnd),
+                            hoverMessage: hoverMessage
+                        });
                     }
                     
                     if (decorationsArray.length > 0) {
@@ -354,7 +386,7 @@ export class DecorationManager {
             }
         }
     }
-    
+
     /**
      * Applies linter issue decorations to all open text editors.
      * 

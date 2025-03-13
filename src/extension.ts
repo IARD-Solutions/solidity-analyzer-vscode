@@ -206,7 +206,7 @@ function updateAnalysisResults(
         decorationManager.highlightLinterIssues(linterResults);
         
         // Update status bar
-        statusBarService.updateVulnerabilityCount(vulnerabilities);
+        statusBarService.updateVulnerabilityCount(vulnerabilities, linterResults);
     } else if (vulnerabilities.length > 0) {
         vscode.window.showInformationMessage(
             `Found ${vulnerabilities.length} vulnerabilities, but all are filtered out by your current settings.`
@@ -233,7 +233,7 @@ function updateAnalysisResults(
     }
     
     // Update status bar
-    statusBarService.updateVulnerabilityCount(vulnerabilities);
+    statusBarService.updateVulnerabilityCount(vulnerabilities, linterResults);
 }
 
 /**

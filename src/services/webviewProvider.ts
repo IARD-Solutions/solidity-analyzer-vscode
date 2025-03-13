@@ -9,6 +9,8 @@ import { formatRuleId } from '../utils/vulnerabilityProcessor';
  */
 export class WebviewProvider {
     private readonly logger: LoggingService;
+    // Static property to track the current panel
+    private static currentPanel: vscode.WebviewPanel | undefined;
 
     /**
      * Creates a new WebviewProvider instance.
@@ -20,7 +22,7 @@ export class WebviewProvider {
     }
 
     /**
-     * Creates a webview panel to display vulnerabilities and linter results.
+     * Creates or reuses a webview panel to display vulnerabilities and linter results.
      * 
      * @param vulnerabilities The vulnerabilities to display
      * @param linterResults The linter results to display
@@ -38,11 +40,30 @@ export class WebviewProvider {
         onFocusLinterIssue: (linterIssue: LinterResult) => void,
         onDismissHighlights: () => void
     ): vscode.WebviewPanel {
-        this.logger.debug(`Creating webview panel to display ${vulnerabilities.length} vulnerabilities and ${linterResults.length} linter issues`);
+        this.logger.debug(`Creating or reusing webview panel to display ${vulnerabilities.length} vulnerabilities and ${linterResults.length} linter issues`);
         
+        const totalIssues = vulnerabilities.length + linterResults.length;
+        
+        // Check if we already have a panel and it's not disposed
+        if (WebviewProvider.currentPanel) {
+            try {
+                // Update the existing panel
+                this.logger.info('Reusing existing webview panel');
+                WebviewProvider.currentPanel.webview.html = this.getWebviewContent(vulnerabilities, linterResults, WebviewProvider.currentPanel.webview, context);
+                WebviewProvider.currentPanel.reveal();
+                
+                return WebviewProvider.currentPanel;
+            } catch (e) {
+                // Panel was probably disposed, reset the reference
+                this.logger.warn('Previously tracked panel was disposed, creating a new one', e);
+                WebviewProvider.currentPanel = undefined;
+            }
+        }
+        
+        // Create a new panel if we don't have one or the previous one was disposed
         const panel = vscode.window.createWebviewPanel(
             'solidityAnalyzer',
-            'Solidity Analyzer',
+            `Solidity Analyzer (${totalIssues} issues)`,
             vscode.ViewColumn.Two,
             {
                 enableScripts: true,
@@ -50,6 +71,14 @@ export class WebviewProvider {
                 retainContextWhenHidden: true
             }
         );
+
+        // Store the panel reference
+        WebviewProvider.currentPanel = panel;
+        
+        // Handle panel disposal
+        panel.onDidDispose(() => {
+            WebviewProvider.currentPanel = undefined;
+        }, null, context.subscriptions);
 
         // Set the webview's initial html content
         panel.webview.html = this.getWebviewContent(vulnerabilities, linterResults, panel.webview, context);
@@ -87,8 +116,21 @@ export class WebviewProvider {
             context.subscriptions
         );
 
-        this.logger.info('Webview panel created successfully');
+        this.logger.info('New webview panel created successfully');
         return panel;
+    }
+
+    /**
+     * Updates the title of the panel to show the current issue count
+     * 
+     * @param vulnCount Number of vulnerabilities
+     * @param linterCount Number of linter issues
+     */
+    public updatePanelTitle(vulnCount: number, linterCount: number): void {
+        if (WebviewProvider.currentPanel) {
+            const totalCount = vulnCount + linterCount;
+            WebviewProvider.currentPanel.title = `Solidity Analyzer (${totalCount} issues)`;
+        }
     }
 
     /**
@@ -118,7 +160,7 @@ export class WebviewProvider {
             'codicon.css'
         );
 
-        const totalVulnerabilities = vulnerabilities.length + linterResults.length;
+        const totalIssues = vulnerabilities.length + linterResults.length;
 
         return `<!DOCTYPE html>
             <html lang="en">
@@ -165,7 +207,7 @@ export class WebviewProvider {
             <body class="vscode-body">
                 <div class="container">
                     <div class="header">
-                        <h1>Solidity Analyzer <span id="vulnerability-count">${totalVulnerabilities}</span></h1>
+                        <h1>Solidity Analyzer <span id="vulnerability-count">${totalIssues}</span></h1>
                         <div class="toolbar">
                             <button id="dismiss-button" class="button" title="Dismiss all highlights">
                                 <span class="codicon codicon-clear-all"></span> Dismiss Highlights

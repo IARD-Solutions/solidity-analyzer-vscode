@@ -161,8 +161,19 @@
         setTimeout(() => {
             try {
                 const filteredVulnerabilities = filterVulnerabilities();
+                
+                // Calculate total issues (vulnerabilities + linter issues)
+                const totalIssues = state.vulnerabilities.length + state.linterResults.length;
+                
+                // Update the total count in the header (not just vulnerability count)
                 if (vulnerabilityCountElement) {
-                    vulnerabilityCountElement.textContent = filteredVulnerabilities.length;
+                    vulnerabilityCountElement.textContent = totalIssues;
+                }
+                
+                // Update just the vulnerability tab badge
+                const vulnTabBadge = document.querySelector('.tab[data-tab="vulnerabilities"] .tab-badge');
+                if (vulnTabBadge) {
+                    vulnTabBadge.textContent = filteredVulnerabilities.length;
                 }
                 
                 // Handle no results
@@ -329,6 +340,12 @@
             const filteredResults = state.linterResults.filter(result => 
                 activeCategories.length === 0 || activeCategories.includes(result.category)
             );
+            
+            // Update just the linter tab badge
+            const linterTabBadge = document.querySelector('.tab[data-tab="linter"] .tab-badge');
+            if (linterTabBadge) {
+                linterTabBadge.textContent = filteredResults.length;
+            }
             
             console.log(`Rendering ${filteredResults.length} linter results`);
             
