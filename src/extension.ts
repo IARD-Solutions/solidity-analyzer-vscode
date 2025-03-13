@@ -6,7 +6,7 @@ import { DecorationManager } from './services/decorationManager';
 import { WebviewProvider } from './services/webviewProvider';
 import { LoggingService } from './services/loggingService';
 import { StatusBarService } from './services/statusBarService';
-import { Vulnerability } from './models/types';
+import { Vulnerability, LinterResult } from './models/types';
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -22,6 +22,7 @@ let decorationManager: DecorationManager;
 let webviewProvider: WebviewProvider;
 let statusBarService: StatusBarService;
 let lastAnalyzedVulnerabilities: Vulnerability[] = [];
+let lastAnalyzedLinterResults: LinterResult[] = [];
 
 /**
  * Activates the Solidity Analyzer extension.
@@ -47,13 +48,14 @@ export function activate(context: vscode.ExtensionContext) {
                 statusBarService.showScanning();
                 logger.info('Starting analysis of all Solidity files');
                 
-                const vulnerabilities = await analyzer.analyzeAllSolidityFiles();
-                lastAnalyzedVulnerabilities = vulnerabilities;
+                const result = await analyzer.analyzeAllSolidityFiles();
+                lastAnalyzedVulnerabilities = result.vulnerabilities;
+                lastAnalyzedLinterResults = result.linterResults || [];
                 
-                logger.info(`Analysis complete. Found ${vulnerabilities.length} vulnerabilities`);
+                logger.info(`Analysis complete. Found ${result.vulnerabilities.length} vulnerabilities and ${lastAnalyzedLinterResults.length} linter issues`);
                 
-                // Update UI components with vulnerabilities
-                updateWithVulnerabilities(vulnerabilities, context);
+                // Update UI components with analysis results
+                updateAnalysisResults(result.vulnerabilities, lastAnalyzedLinterResults, context);
             } catch (error) {
                 logger.error('Error analyzing Solidity files', error);
                 vscode.window.showErrorMessage(`Analysis failed: ${error}`);
@@ -69,13 +71,14 @@ export function activate(context: vscode.ExtensionContext) {
                 statusBarService.showScanning();
                 logger.info('Starting analysis of current Solidity file');
                 
-                const vulnerabilities = await analyzer.analyzeCurrentSolidityFile();
-                lastAnalyzedVulnerabilities = vulnerabilities;
+                const result = await analyzer.analyzeCurrentSolidityFile();
+                lastAnalyzedVulnerabilities = result.vulnerabilities;
+                lastAnalyzedLinterResults = result.linterResults || [];
                 
-                logger.info(`Analysis complete. Found ${vulnerabilities.length} vulnerabilities`);
+                logger.info(`Analysis complete. Found ${result.vulnerabilities.length} vulnerabilities and ${lastAnalyzedLinterResults.length} linter issues`);
                 
-                // Update UI components with vulnerabilities
-                updateWithVulnerabilities(vulnerabilities, context);
+                // Update UI components with analysis results
+                updateAnalysisResults(result.vulnerabilities, lastAnalyzedLinterResults, context);
             } catch (error) {
                 logger.error('Error analyzing current file', error);
                 vscode.window.showErrorMessage(`Analysis failed: ${error}`);
@@ -168,9 +171,17 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 /**
- * Updates all UI components with vulnerability data.
+ * Updates all UI components with analysis results.
+ * 
+ * @param vulnerabilities The discovered vulnerabilities
+ * @param linterResults The linter issues
+ * @param context The extension context
  */
-function updateWithVulnerabilities(vulnerabilities: Vulnerability[], context: vscode.ExtensionContext): void {
+function updateAnalysisResults(
+    vulnerabilities: Vulnerability[],
+    linterResults: LinterResult[],
+    context: vscode.ExtensionContext
+): void {
     // Filter vulnerabilities by severity if configured
     const config = vscode.workspace.getConfiguration('solidityAnalyzer');
     const severityFilter = config.get<string[]>('filterSeverity', []);
@@ -179,24 +190,49 @@ function updateWithVulnerabilities(vulnerabilities: Vulnerability[], context: vs
         !severityFilter.length || severityFilter.includes(vuln.impact)
     );
     
-    // Create webview if there are vulnerabilities
-    if (filteredVulns.length > 0) {
+    // Create webview if there are issues to show
+    if (filteredVulns.length > 0 || linterResults.length > 0) {
         webviewProvider.createWebviewPanel(
             filteredVulns,
+            linterResults,
             context,
             (vulnerability) => decorationManager.focusOnVulnerability(vulnerability),
+            (linterIssue) => decorationManager.focusOnLinterIssue(linterIssue),
             () => decorationManager.dismissHighlights()
         );
+        
+        // Update decorations
+        decorationManager.highlightVulnerabilities(filteredVulns);
+        decorationManager.highlightLinterIssues(linterResults);
+        
+        // Update status bar
+        statusBarService.updateVulnerabilityCount(vulnerabilities);
     } else if (vulnerabilities.length > 0) {
         vscode.window.showInformationMessage(
             `Found ${vulnerabilities.length} vulnerabilities, but all are filtered out by your current settings.`
         );
+    } else if (linterResults.length > 0) {
+        vscode.window.showInformationMessage(
+            `No vulnerabilities found, but ${linterResults.length} linter issues were detected.`
+        );
+        
+        // Still create the webview for linter issues
+        webviewProvider.createWebviewPanel(
+            [],
+            linterResults,
+            context,
+            (vulnerability) => decorationManager.focusOnVulnerability(vulnerability),
+            (linterIssue) => decorationManager.focusOnLinterIssue(linterIssue),
+            () => decorationManager.dismissHighlights()
+        );
+        
+        // Update linter decorations
+        decorationManager.highlightLinterIssues(linterResults);
     } else {
-        vscode.window.showInformationMessage('No vulnerabilities found. Great job!');
+        vscode.window.showInformationMessage('No issues found. Great job!');
     }
     
-    // Update other services
-    decorationManager.highlightVulnerabilities(filteredVulns);
+    // Update status bar
     statusBarService.updateVulnerabilityCount(vulnerabilities);
 }
 

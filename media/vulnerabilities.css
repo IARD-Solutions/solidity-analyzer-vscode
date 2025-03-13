@@ -1,4 +1,6 @@
+/* Define a consistent color palette */
 :root {
+  /* Severity colors - more consistent and accessible */
   --critical-color: #d9534f;
   --high-color: #f0ad4e;
   --medium-color: #f7e359;
@@ -6,7 +8,18 @@
   --info-color: #5bc0de;
   --optimization-color: #28a745;
   
+  /* Category colors - more harmonized */
+  --security-color: #e74c3c;
+  --gas-color: #f39c12;
+  --best-practice-color: #3498db;
+  --style-color: #9b59b6;
+  --misc-color: #7f8c8d;
+  
   --animation-speed: 0.2s;
+  
+  /* Category section headers */
+  --category-header-bg: rgba(0, 0, 0, 0.05);
+  --category-header-border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 body.vscode-light {
@@ -25,6 +38,8 @@ body.vscode-dark {
   --border-color: #3e3e3e;
   --shadow-color: rgba(0, 0, 0, 0.4);
   --button-hover: #3e3e3e;
+  --category-header-bg: rgba(255, 255, 255, 0.05);
+  --category-header-border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 body {
@@ -115,13 +130,14 @@ select {
   margin: 0;
 }
 
-.vulnerability-item {
-  margin-bottom: 12px;
-  border-radius: 6px;
+.vulnerability-item, .linter-item {
+  margin-bottom: 6px;
+  border-radius: 4px;
   overflow: hidden;
   background-color: var(--card-background);
   border: 1px solid var(--border-color);
-  box-shadow: 0 2px 5px var(--shadow-color);
+  border-left-width: 4px;
+  box-shadow: 0 1px 2px var(--shadow-color);
   transition: transform var(--animation-speed) ease, box-shadow var(--animation-speed) ease;
 }
 
@@ -131,7 +147,7 @@ select {
 }
 
 .vulnerability-header {
-  padding: 12px 16px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   cursor: pointer;
@@ -196,11 +212,11 @@ select {
   padding: 0;
   max-height: 0;
   overflow: hidden;
-  transition: max-height var(--animation-speed) ease, padding var(--animation-speed) ease;
+  transition: max-height 0.3s ease, padding 0.3s ease;
 }
 
 .vulnerability-details.expanded {
-  padding: 0 16px 16px;
+  padding: 12px 16px;
   max-height: 800px; /* adjust as needed */
 }
 
@@ -276,14 +292,14 @@ select {
   align-items: center;
   justify-content: center; /* Add this to center the content horizontally */
   gap: 6px;
-  border-radius: 20px;
-  padding: 5px 12px;
-  font-size: 0.9em;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.85em;
   cursor: pointer;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   transition: all var(--animation-speed) ease;
   user-select: none;
-  min-width: 110px; /* Add minimum width for more consistent button sizes */
+  min-width: 100px; /* Add minimum width for more consistent button sizes */
   text-align: center; /* Ensure text is centered */
 }
 
@@ -316,6 +332,31 @@ select {
   color: white;
 }
 
+.toggle-button.security {
+  background-color: var(--security-color);
+  color: white;
+}
+
+.toggle-button.gas {
+  background-color: var(--gas-color);
+  color: black;
+}
+
+.toggle-button.best-practice {
+  background-color: var(--best-practice-color);
+  color: white;
+}
+
+.toggle-button.style {
+  background-color: var(--style-color);
+  color: white;
+}
+
+.toggle-button.misc {
+  background-color: var(--misc-color);
+  color: white;
+}
+
 .toggle-button.disabled {
   opacity: 0.4;
   text-decoration: line-through;
@@ -328,4 +369,246 @@ select {
 .toggle-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+.category-security {
+  border-left-color: var(--security-color);
+}
+
+.category-gas {
+  border-left-color: var(--gas-color);
+}
+
+.category-best-practice {
+  border-left-color: var(--best-practice-color);
+}
+
+.category-style {
+  border-left-color: var(--style-color);
+}
+
+.category-misc {
+  border-left-color: var(--misc-color);
+}
+
+.impact-critical {
+  border-left-color: var(--critical-color);
+}
+
+.impact-high {
+  border-left-color: var(--high-color);
+}
+
+.impact-medium {
+  border-left-color: var(--medium-color);
+}
+
+.impact-low {
+  border-left-color: var(--low-color);
+}
+
+.impact-informational {
+  border-left-color: var(--info-color);
+}
+
+.impact-optimization {
+  border-left-color: var(--optimization-color);
+}
+
+.linter-category {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  margin-right: 8px;
+  font-weight: 500;
+}
+
+.linter-category.security {
+  background-color: var(--security-color);
+  color: white;
+}
+
+.linter-category.gas {
+  background-color: var(--gas-color);
+  color: black;
+}
+
+.linter-category.best-practice {
+  background-color: var(--best-practice-color);
+  color: white;
+}
+
+.linter-category.style {
+  background-color: var(--style-color);
+  color: white;
+}
+
+.linter-category.misc {
+  background-color: var(--misc-color);
+  color: white;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.2s ease;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+}
+
+.action-button:hover {
+  background-color: var(--vscode-button-hoverBackground);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 3px var(--shadow-color);
+}
+
+.action-button:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px var(--shadow-color);
+}
+
+.focus-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.focus-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.5);
+  opacity: 0;
+  border-radius: 100%;
+  transform: scale(1, 1) translate(-50%, -50%);
+  transform-origin: 50% 50%;
+}
+
+.focus-button:focus::after {
+  animation: ripple 0.6s ease-out;
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0, 0);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(30, 30);
+    opacity: 0;
+  }
+}
+
+.action-button .codicon {
+  font-size: 12px;
+}
+
+.category-group-header {
+  padding: 6px 12px;
+  margin: 10px 0 5px 0;
+  font-weight: 600;
+  background-color: var(--category-header-bg);
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: var(--category-header-border);
+  user-select: none;
+  cursor: pointer;
+}
+
+.category-group-header .count {
+  background-color: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  border-radius: 10px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.detail-table td {
+  padding: 4px 0;
+}
+
+.detail-table td:first-child {
+  font-weight: 600;
+  width: 100px;
+  vertical-align: top;
+  padding-right: 12px;
+}
+
+/* Adjust severity badge in details table */
+.detail-table .severity-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+/* Make sure the vulnerability-meta has proper spacing */
+.vulnerability-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.detail-table td:first-child {
+  font-weight: 600;
+  width: 100px;
+  vertical-align: top;
+}
+
+/* Tab styles - these already exist in the inline styles, but we'll enhance them */
+.tab {
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Style the badge on tabs */
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+/* Active tab badge can have a different styling if desired */
+.tab.active .tab-badge {
+  background-color: var(--vscode-badge-background);
 }

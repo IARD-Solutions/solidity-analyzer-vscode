@@ -1,539 +1,595 @@
 import * as vscode from 'vscode';
-import { Vulnerability } from '../models/types';
+import * as path from 'path';
+import * as fs from 'fs';
+import { Vulnerability, LinterResult } from '../models/types';
 import { LoggingService } from './loggingService';
 
 /**
- * Manages editor decorations for highlighting vulnerable code.
+ * Manages the decoration of vulnerabilities and linter issues in the editor.
  */
 export class DecorationManager {
-    private readonly errorHighlightDecoration: vscode.TextEditorDecorationType;
     private readonly logger: LoggingService;
+    private readonly vulnerabilityDecorations = new Map<string, vscode.TextEditorDecorationType>();
+    private readonly linterDecorations = new Map<string, vscode.TextEditorDecorationType>();
+    // Store hover messages separately
+    private readonly hoverMessages = new Map<string, vscode.MarkdownString>();
     
-    // Registry of all active decorations, keyed by UUID
-    private decorationRegistry = new Map<string, {
-        editor: vscode.TextEditor,
-        range: vscode.Range,
-        descriptions: string[]
-    }>();
-    
-    // Mapping of editors to their active decoration IDs
-    private editorDecorations = new Map<string, Set<string>>();
-    
-    // Current sequence ID to track the latest operation
-    private operationSequence = 0;
-
     /**
      * Creates a new DecorationManager instance.
+     * 
+     * @param logger The logging service
      */
     constructor(logger: LoggingService) {
         this.logger = logger;
-        this.errorHighlightDecoration = vscode.window.createTextEditorDecorationType({
-            backgroundColor: 'rgba(255,0,0,0.3)',
-            overviewRulerColor: 'red',
-            overviewRulerLane: vscode.OverviewRulerLane.Right,
-            after: {
-                contentText: ' ',
-                color: new vscode.ThemeColor('editorError.foreground'),
-                margin: '0 0 0 5px',
-            },
-            light: {
-                backgroundColor: 'rgba(255,0,0,0.3)'
-            },
-            dark: {
-                backgroundColor: 'rgba(255,0,0,0.3)'
-            }
-        });
+        this.logger.debug('DecorationManager initialized');
     }
 
     /**
-     * Highlights vulnerabilities in the current editor.
+     * Highlights vulnerabilities in the editor.
      * 
      * @param vulnerabilities The vulnerabilities to highlight
-     * @returns The editor with applied decorations
      */
-    public highlightVulnerabilities(vulnerabilities: Vulnerability[]): vscode.TextEditor | undefined {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) return;
+    public highlightVulnerabilities(vulnerabilities: Vulnerability[]): void {
+        this.logger.info(`Highlighting ${vulnerabilities.length} vulnerabilities in editor`);
         
-        // Clear existing decorations for this editor
-        this.dismissHighlightsInEditor(editor);
-
-        // Track this operation with a new sequence ID
-        const sequence = ++this.operationSequence;
-
-        // Group vulnerabilities by range
-        const vulnerabilitiesByRange = this.groupVulnerabilitiesByRange(vulnerabilities, editor);
-        
-        // Create decorations and register them
-        const decorations: vscode.DecorationOptions[] = [];
-        const editorId = this.getEditorId(editor);
-        const editorDecorationIds = new Set<string>();
-        
-        for (const [rangeKey, item] of vulnerabilitiesByRange.entries()) {
-            // Generate a unique ID for this decoration
-            const decorationId = this.generateUniqueId();
+        for (const vulnerability of vulnerabilities) {
+            if (!vulnerability.lines || vulnerability.lines.length === 0) {
+                continue;
+            }
             
-            // Create the decoration
-            const decorationOption = {
-                range: item.range,
-                hoverMessage: this.createCombinedHoverMessage(item.descriptions, decorationId)
-            };
-            
-            decorations.push(decorationOption);
-            editorDecorationIds.add(decorationId);
-            
-            // Store in the registry
-            this.decorationRegistry.set(decorationId, {
-                editor,
-                range: item.range,
-                descriptions: item.descriptions
-            });
-            
-            this.logger.debug(`Created decoration ${decorationId} for range ${rangeKey}`);
+            this.createVulnerabilityDecoration(vulnerability);
+            this.applyDecorationToEditors(vulnerability);
         }
+    }
+    
+    /**
+     * Highlights linter issues in the editor.
+     * 
+     * @param linterResults The linter issues to highlight
+     */
+    public highlightLinterIssues(linterResults: LinterResult[]): void {
+        this.logger.info(`Highlighting ${linterResults.length} linter issues in editor`);
         
-        // Only update if this is still the latest operation
-        if (sequence === this.operationSequence) {
-            // Store the editor's decoration IDs
-            this.editorDecorations.set(editorId, editorDecorationIds);
+        for (const linterResult of linterResults) {
+            if (!linterResult.filePath || !linterResult.line) {
+                continue;
+            }
             
-            // Apply decorations to the editor
-            editor.setDecorations(this.errorHighlightDecoration, decorations);
-            this.logger.debug(`Applied ${decorations.length} decorations to editor ${editorId}`);
+            this.createLinterDecoration(linterResult);
+            this.applyLinterDecorationToEditors(linterResult);
         }
-        
-        return editor;
     }
 
     /**
-     * Focuses on a specific vulnerability by highlighting only its affected lines
-     * and scrolling to show them.
+     * Focuses the editor on a specific vulnerability.
      * 
      * @param vulnerability The vulnerability to focus on
      */
-    public async focusOnVulnerability(vulnerability: Vulnerability): Promise<void> {
-        // Dismiss existing highlights first
-        this.dismissHighlights();
-        
-        const vulnId = vulnerability.id || 
-            (vulnerability.title ? `"${vulnerability.title}"` : 
-            (vulnerability.description ? `desc: "${vulnerability.description.substring(0, 30)}..."` : 'unknown'));
-        
-        this.logger.info(`Focusing on vulnerability: ${vulnId}`);
-        
+    public focusOnVulnerability(vulnerability: Vulnerability): void {
         if (!vulnerability.lines || vulnerability.lines.length === 0) {
-            this.logger.warn(`Vulnerability ${vulnId} has no line information to highlight`);
+            this.logger.warn(`Cannot focus on vulnerability without line information: ${vulnerability.id || vulnerability.title}`);
             return;
         }
-        
-        // Track this operation with a new sequence ID
-        const sequence = ++this.operationSequence;
-        
-        for (const lineInfo of vulnerability.lines) {
-            // Skip node_modules
-            if (lineInfo.contract.includes('node_modules')) continue;
-            
-            try {
-                // Find or open the document containing this vulnerability
-                await this.openOrFocusDocument(lineInfo.contract);
-                
-                const editor = vscode.window.activeTextEditor;
-                if (!editor) continue;
-                
-                const document = editor.document;
-                const decorations: vscode.DecorationOptions[] = [];
-                const editorId = this.getEditorId(editor);
-                const editorDecorationIds = new Set<string>();
-                
-                // Create decorations for this vulnerability
-                this.createDecorationsForVulnerability(
-                    editor,
-                    document,
-                    lineInfo.lines,
-                    vulnerability.description,
-                    decorations,
-                    editorDecorationIds
-                );
-                
-                // Only update if this is still the latest operation
-                if (sequence === this.operationSequence) {
-                    // Store the editor's decoration IDs
-                    this.editorDecorations.set(editorId, editorDecorationIds);
-                    
-                    // Apply decorations
-                    editor.setDecorations(this.errorHighlightDecoration, decorations);
-                    
-                    // Scroll to the first highlighted line
-                    if (decorations.length > 0) {
-                        editor.revealRange(
-                            decorations[0].range, 
-                            vscode.TextEditorRevealType.InCenter
-                        );
-                    }
-                }
-            } catch (error) {
-                this.logger.error('Error focusing on vulnerability:', error);
-            }
-        }
-    }
 
-    /**
-     * Creates decorations for a vulnerability's lines.
-     */
-    private createDecorationsForVulnerability(
-        editor: vscode.TextEditor,
-        document: vscode.TextDocument,
-        lines: number[],
-        description: string,
-        decorations: vscode.DecorationOptions[],
-        editorDecorationIds: Set<string>
-    ): void {
-        // Group consecutive line numbers
-        let startLine = 0;
-        let endLine = 0;
+        const firstLocation = vulnerability.lines[0];
+        this.logger.info(`Focusing on vulnerability in file: ${firstLocation.contract} at line ${firstLocation.lines[0]}`);
         
-        lines.forEach((line, index) => {
-            if (startLine === 0) {
-                startLine = line;
-                endLine = line;
-            } else if (line === endLine + 1) {
-                endLine = line;
-            } else {
-                this.addDecorationForRange(editor, document, startLine, endLine, 
-                    description, decorations, editorDecorationIds);
-                startLine = line;
-                endLine = line;
-            }
-            
-            // Process the last group
-            if (index === lines.length - 1) {
-                this.addDecorationForRange(editor, document, startLine, endLine,
-                    description, decorations, editorDecorationIds);
-            }
-        });
+        // Focus on the file and navigate to the line
+        this.openAndFocusFile(firstLocation.contract, firstLocation.lines[0]);
     }
     
     /**
-     * Adds a decoration for a specific line range.
+     * Focuses the editor on a specific linter issue.
+     * 
+     * @param linterIssue The linter issue to focus on
      */
-    private addDecorationForRange(
-        editor: vscode.TextEditor,
-        document: vscode.TextDocument,
-        startLine: number,
-        endLine: number,
-        description: string,
-        decorations: vscode.DecorationOptions[],
-        editorDecorationIds: Set<string>
-    ): void {
-        const range = this.createRange(document, startLine, endLine);
-        const decorationId = this.generateUniqueId();
+    public focusOnLinterIssue(linterIssue: LinterResult): void {
+        if (!linterIssue.filePath || !linterIssue.line) {
+            this.logger.warn(`Cannot focus on linter issue without file or line information: ${linterIssue.ruleId}`);
+            return;
+        }
+
+        this.logger.info(`Focusing on linter issue in file: ${linterIssue.filePath} at line ${linterIssue.line}`);
         
-        const decorationOption = {
-            range,
-            hoverMessage: this.createCombinedHoverMessage([description], decorationId)
-        };
-        
-        decorations.push(decorationOption);
-        editorDecorationIds.add(decorationId);
-        
-        // Store in the registry
-        this.decorationRegistry.set(decorationId, {
-            editor,
-            range,
-            descriptions: [description]
-        });
-        
-        this.logger.debug(`Created decoration ${decorationId} for range ${startLine}-${endLine}`);
+        // Focus on the file and navigate to the line
+        this.openAndFocusFile(linterIssue.filePath, linterIssue.line);
     }
 
     /**
-     * Dismisses a single highlight by its decoration ID.
+     * Opens a file and focuses on a specific line.
+     * 
+     * @param filePath The path of the file to open
+     * @param line The line number to focus on
      */
-    public dismissSingleHighlight(decorationId: string): void {
-        this.logger.debug(`Trying to dismiss highlight with ID: ${decorationId}`);
-        
-        if (!decorationId) {
-            this.logger.warn("No decoration ID provided for dismissal");
-            return;
-        }
-        
-        const decoration = this.decorationRegistry.get(decorationId);
-        if (!decoration) {
-            this.logger.warn(`No decoration found with ID: ${decorationId}`);
-            this.logger.debug("Available decoration IDs:", Array.from(this.decorationRegistry.keys()));
-            return;
-        }
-
-        const { editor } = decoration;
-        const editorId = this.getEditorId(editor);
-        
+    private async openAndFocusFile(filePath: string, line: number): Promise<void> {
         try {
-            // Get all decorations for this editor
-            const editorDecorationIds = this.editorDecorations.get(editorId) || new Set<string>();
+            this.logger.debug(`Attempting to focus on file: ${filePath} at line: ${line}`);
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             
-            // Remove this decoration ID
-            editorDecorationIds.delete(decorationId);
-            
-            // Update the editor decorations map
-            this.editorDecorations.set(editorId, editorDecorationIds);
-            
-            // Remove from registry
-            this.decorationRegistry.delete(decorationId);
-            
-            // Refresh all decorations for the editor
-            this.refreshEditorDecorations(editor);
-            
-            this.logger.info(`Successfully dismissed highlight with ID: ${decorationId}`);
-        } catch (e) {
-            this.logger.error(`Error dismissing highlight: ${e}`);
-        }
-    }
-
-    /**
-     * Dismisses all vulnerability highlights from editors.
-     */
-    public dismissHighlights(): void {
-        // Clear the registry
-        this.decorationRegistry.clear();
-        this.editorDecorations.clear();
-        
-        // Increment sequence to cancel any ongoing operations
-        ++this.operationSequence;
-        
-        // Clear decorations from all visible editors
-        for (const editor of vscode.window.visibleTextEditors) {
-            editor.setDecorations(this.errorHighlightDecoration, []);
-        }
-        
-        this.logger.info("All highlights dismissed");
-    }
-    
-    /**
-     * Dismisses all highlights in a specific editor.
-     */
-    private dismissHighlightsInEditor(editor: vscode.TextEditor): void {
-        const editorId = this.getEditorId(editor);
-        
-        // Get all decoration IDs for this editor
-        const editorDecorationIds = this.editorDecorations.get(editorId);
-        if (editorDecorationIds) {
-            // Remove all these decorations from the registry
-            for (const id of editorDecorationIds) {
-                this.decorationRegistry.delete(id);
+            if (!workspaceFolder) {
+                this.logger.error('No workspace folder found');
+                vscode.window.showErrorMessage('No workspace folder found');
+                return;
             }
             
-            // Clear the editor's decoration IDs
-            this.editorDecorations.delete(editorId);
-        }
-        
-        // Clear decorations from the editor
-        editor.setDecorations(this.errorHighlightDecoration, []);
-        
-        this.logger.debug(`Dismissed all highlights in editor ${editorId}`);
-    }
-    
-    /**
-     * Refreshes the decorations in an editor based on the current registry state.
-     */
-    private refreshEditorDecorations(editor: vscode.TextEditor): void {
-        const editorId = this.getEditorId(editor);
-        const editorDecorationIds = this.editorDecorations.get(editorId);
-        
-        if (!editorDecorationIds || editorDecorationIds.size === 0) {
-            // No decorations for this editor
-            editor.setDecorations(this.errorHighlightDecoration, []);
-            return;
-        }
-        
-        // Build decoration options from the registry
-        const decorations: vscode.DecorationOptions[] = [];
-        
-        for (const id of editorDecorationIds) {
-            const decoration = this.decorationRegistry.get(id);
-            if (decoration) {
-                decorations.push({
-                    range: decoration.range,
-                    hoverMessage: this.createCombinedHoverMessage(decoration.descriptions, id)
-                });
+            // Normalize file path and try various resolution strategies
+            let resolvedPath: string | undefined;
+            
+            // 1. Try as absolute path
+            if (fs.existsSync(filePath)) {
+                resolvedPath = filePath;
+                this.logger.debug(`File found as absolute path: ${resolvedPath}`);
             }
-        }
-        
-        // Apply decorations
-        editor.setDecorations(this.errorHighlightDecoration, decorations);
-        this.logger.debug(`Refreshed ${decorations.length} decorations in editor ${editorId}`);
-    }
-    
-    /**
-     * Gets a unique ID for an editor.
-     */
-    private getEditorId(editor: vscode.TextEditor): string {
-        return `editor-${editor.document.fileName}`;
-    }
-    
-    /**
-     * Generates a unique ID for a decoration.
-     */
-    private generateUniqueId(): string {
-        return `decoration-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    }
-    
-    /**
-     * Groups vulnerabilities by their line range.
-     */
-    private groupVulnerabilitiesByRange(
-        vulnerabilities: Vulnerability[],
-        editor: vscode.TextEditor
-    ): Map<string, { range: vscode.Range, descriptions: string[] }> {
-        const document = editor.document;
-        const result = new Map<string, { range: vscode.Range, descriptions: string[] }>();
-        
-        vulnerabilities.forEach(vuln => {
-            vuln.lines?.forEach(lineInfo => {
-                if (lineInfo.contract.includes('node_modules')) return; // Skip highlighting for node_modules
+            // 2. Try resolving relative to workspace
+            else if (fs.existsSync(path.join(workspaceFolder.uri.fsPath, filePath))) {
+                resolvedPath = path.join(workspaceFolder.uri.fsPath, filePath);
+                this.logger.debug(`File found as workspace-relative path: ${resolvedPath}`);
+            }
+            // 3. Try just the filename in any workspace folder
+            else {
+                const fileName = path.basename(filePath);
+                this.logger.debug(`Searching for filename in workspace: ${fileName}`);
                 
-                if (document.fileName.includes(lineInfo.contract)) {
-                    // This vulnerability applies to the current document
-                    this.processVulnerabilityLines(document, lineInfo.lines, vuln.description, result);
+                const files = await vscode.workspace.findFiles(`**/${fileName}`, '**/node_modules/**');
+                if (files.length > 0) {
+                    resolvedPath = files[0].fsPath;
+                    this.logger.debug(`File found by searching workspace: ${resolvedPath}`);
                 }
-            });
-        });
-        
-        return result;
-    }
-    
-    /**
-     * Processes vulnerability lines and groups them by range.
-     */
-    private processVulnerabilityLines(
-        document: vscode.TextDocument,
-        lines: number[],
-        description: string,
-        result: Map<string, { range: vscode.Range, descriptions: string[] }>
-    ): void {
-        // Group consecutive line numbers
-        let startLine = 0;
-        let endLine = 0;
-        
-        lines.forEach((line, index) => {
-            if (startLine === 0) {
-                startLine = line;
-                endLine = line;
-            } else if (line === endLine + 1) {
-                endLine = line;
-            } else {
-                this.addToRangeGroup(document, startLine, endLine, description, result);
-                startLine = line;
-                endLine = line;
             }
             
-            // Process the last group
-            if (index === lines.length - 1) {
-                this.addToRangeGroup(document, startLine, endLine, description, result);
+            if (!resolvedPath) {
+                this.logger.error(`Could not resolve file path: ${filePath}`);
+                vscode.window.showErrorMessage(`Could not find file: ${filePath}`);
+                return;
             }
-        });
-    }
-    
-    /**
-     * Adds a vulnerability description to the map of decorations grouped by range.
-     */
-    private addToRangeGroup(
-        document: vscode.TextDocument,
-        startLine: number,
-        endLine: number,
-        description: string,
-        result: Map<string, { range: vscode.Range, descriptions: string[] }>
-    ): void {
-        const range = this.createRange(document, startLine, endLine);
-        const rangeKey = `${range.start.line}-${range.end.line}`;
-        
-        if (result.has(rangeKey)) {
-            const existing = result.get(rangeKey)!;
-            // Only add the description if it doesn't already exist
-            if (!existing.descriptions.includes(description)) {
-                existing.descriptions.push(description);
-            }
-        } else {
-            result.set(rangeKey, { range, descriptions: [description] });
-        }
-    }
-
-    /**
-     * Creates a range from start and end line numbers.
-     */
-    private createRange(document: vscode.TextDocument, startLine: number, endLine: number): vscode.Range {
-        return new vscode.Range(
-            startLine - 1, 0, 
-            endLine - 1, document.lineAt(endLine - 1).range.end.character
-        );
-    }
-
-    /**
-     * Creates a combined hover message from multiple descriptions with dismiss buttons.
-     */
-    private createCombinedHoverMessage(descriptions: string[], decorationId: string): vscode.MarkdownString {
-        const hoverMessage = new vscode.MarkdownString();
-        
-        descriptions.forEach((desc, index) => {
-            if (index > 0) {
-                hoverMessage.appendMarkdown('\n\n---\n\n');
-            }
-            hoverMessage.appendMarkdown(desc);
-        });
-        
-        // Add buttons at the end
-        hoverMessage.appendMarkdown('\n\n---\n\n');
-        
-        // Add the dismiss buttons
-        hoverMessage.appendMarkdown(`[Dismiss This Highlight](command:solidity-analyzer.dismissSingleHighlight?"${decorationId}") | `);
-        hoverMessage.appendMarkdown('[Dismiss All Highlights](command:solidity-analyzer.dismissHighlights)');
-        hoverMessage.isTrusted = true; // Enable command links
-        
-        return hoverMessage;
-    }
-
-    /**
-     * Opens or focuses an existing editor for a document.
-     */
-    private async openOrFocusDocument(filename: string): Promise<void> {
-        // Find the document
-        let document = vscode.workspace.textDocuments.find(doc => 
-            doc.fileName.includes(filename)
-        );
-        
-        // Check if the file is already open in an editor tab
-        let editorAlreadyOpen = false;
-        if (document) {
-            for (const editor of vscode.window.visibleTextEditors) {
-                if (editor.document === document) {
-                    await vscode.window.showTextDocument(editor.document, editor.viewColumn);
-                    editorAlreadyOpen = true;
+            
+            // Check if the file is already open in an editor
+            const uri = vscode.Uri.file(resolvedPath);
+            let editor: vscode.TextEditor | undefined;
+            
+            // First check if the file is open in any visible editors
+            for (const visibleEditor of vscode.window.visibleTextEditors) {
+                if (visibleEditor.document.uri.fsPath === uri.fsPath) {
+                    editor = visibleEditor;
+                    this.logger.debug(`File already open in editor: ${uri.fsPath}`);
                     break;
                 }
             }
-        }
-        
-        // If document doesn't exist or isn't open in a tab
-        if (!document || !editorAlreadyOpen) {
-            // Try to find the file in the workspace and open it
-            const files = await vscode.workspace.findFiles(
-                `**/${filename}`, 
-                '**/node_modules/**'
+            
+            // If not found in visible editors, open it
+            if (!editor) {
+                this.logger.debug(`Opening file: ${uri.fsPath}`);
+                const document = await vscode.workspace.openTextDocument(uri);
+                editor = await vscode.window.showTextDocument(document);
+            } else {
+                // Make the existing editor active
+                await vscode.window.showTextDocument(editor.document, { viewColumn: editor.viewColumn });
+            }
+            
+            // Convert from 1-based to 0-based line number if needed
+            const targetLine = Math.max(0, line - 1);
+            
+            if (targetLine >= editor.document.lineCount) {
+                this.logger.warn(`Line ${line} exceeds document length (${editor.document.lineCount} lines)`);
+                return;
+            }
+            
+            // Position at the beginning of the line
+            const position = new vscode.Position(targetLine, 0);
+            
+            // Move cursor to position and reveal in editor
+            editor.selection = new vscode.Selection(position, position);
+            editor.revealRange(
+                new vscode.Range(position, position),
+                vscode.TextEditorRevealType.InCenter
             );
             
-            if (files.length > 0) {
-                document = await vscode.workspace.openTextDocument(files[0]);
-                await vscode.window.showTextDocument(document, { preview: false });
-            } else {
-                this.logger.warn(`Could not find file: ${filename}`);
+            // Add temporary highlighting effect for the target line
+            this.highlightLineTemporarily(editor, targetLine);
+            
+            this.logger.debug(`Successfully focused on line ${targetLine} in ${uri.fsPath}`);
+        } catch (error) {
+            this.logger.error(`Failed to focus on file: ${error}`);
+            vscode.window.showErrorMessage(`Failed to focus on file: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    }
+
+    /**
+     * Creates a temporary highlight effect for a line when it's focused.
+     * 
+     * @param editor The text editor to highlight in
+     * @param line The line number to highlight
+     */
+    private highlightLineTemporarily(editor: vscode.TextEditor, line: number): void {
+        // Create a temporary decoration type for the flash effect
+        const flashDecoration = vscode.window.createTextEditorDecorationType({
+            backgroundColor: 'rgba(255, 255, 0, 0.3)', // Yellow highlight
+            isWholeLine: true,
+        });
+        
+        // Apply the decoration
+        const range = editor.document.lineAt(line).range;
+        editor.setDecorations(flashDecoration, [{ range }]);
+        
+        // Remove the decoration after a short delay
+        setTimeout(() => {
+            flashDecoration.dispose();
+        }, 1500); // Flash for 1.5 seconds
+    }
+
+    /**
+     * Creates a decoration for a vulnerability.
+     * 
+     * @param vulnerability The vulnerability to create a decoration for
+     * @returns The decoration type
+     */
+    private createVulnerabilityDecoration(vulnerability: Vulnerability): vscode.TextEditorDecorationType {
+        const id = vulnerability.id || `vuln-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        
+        // Return existing decoration if already created
+        if (this.vulnerabilityDecorations.has(id)) {
+            return this.vulnerabilityDecorations.get(id)!;
+        }
+
+        // Create hover message and store it separately
+        const hoverMessage = new vscode.MarkdownString();
+        hoverMessage.isTrusted = true;
+        hoverMessage.appendMarkdown(`### ${vulnerability.title || vulnerability.check}\n\n`);
+        hoverMessage.appendMarkdown(`**Impact:** ${vulnerability.impact} | **Confidence:** ${vulnerability.confidence}\n\n`);
+        hoverMessage.appendMarkdown(`${vulnerability.description}\n\n`);
+        hoverMessage.appendMarkdown(`[Dismiss This](command:solidity-analyzer.dismissSingleHighlight?${encodeURIComponent(JSON.stringify([id]))})`);
+        
+        // Store hover message for later use
+        this.hoverMessages.set(id, hoverMessage);
+
+        // Create decoration based on impact level
+        const decorationType = vscode.window.createTextEditorDecorationType({
+            backgroundColor: this.getBackgroundColorForImpact(vulnerability.impact),
+            borderWidth: '1px',
+            borderStyle: 'solid',
+            borderColor: this.getBorderColorForImpact(vulnerability.impact),
+            overviewRulerColor: this.getRulerColorForImpact(vulnerability.impact),
+            overviewRulerLane: vscode.OverviewRulerLane.Right,
+            after: {
+                contentText: `  // ${vulnerability.title || vulnerability.check}`,
+                color: new vscode.ThemeColor('editorLineNumber.foreground'),
+                fontStyle: 'italic'
+            },
+            isWholeLine: true
+        });
+
+        this.vulnerabilityDecorations.set(id, decorationType);
+        return decorationType;
+    }
+    
+    /**
+     * Creates a decoration for a linter issue.
+     * 
+     * @param linterIssue The linter issue to create a decoration for
+     * @returns The decoration type
+     */
+    private createLinterDecoration(linterIssue: LinterResult): vscode.TextEditorDecorationType {
+        const id = `lint-${linterIssue.filePath}-${linterIssue.line}-${linterIssue.ruleId}`;
+        
+        // Return existing decoration if already created
+        if (this.linterDecorations.has(id)) {
+            return this.linterDecorations.get(id)!;
+        }
+
+        // Create hover message and store it separately
+        const hoverMessage = new vscode.MarkdownString();
+        hoverMessage.isTrusted = true;
+        hoverMessage.appendMarkdown(`### ${linterIssue.ruleId}\n\n`);
+        hoverMessage.appendMarkdown(`**Category:** ${linterIssue.category} | **Severity:** ${this.getSeverityText(linterIssue.severity)}\n\n`);
+        hoverMessage.appendMarkdown(`${linterIssue.message}\n\n`);
+        hoverMessage.appendMarkdown(`[Dismiss This](command:solidity-analyzer.dismissSingleHighlight?${encodeURIComponent(JSON.stringify([id]))})`);
+        
+        // Store hover message for later use
+        this.hoverMessages.set(id, hoverMessage);
+
+        // Create decoration based on category
+        const decorationType = vscode.window.createTextEditorDecorationType({
+            backgroundColor: this.getBackgroundColorForCategory(linterIssue.category),
+            borderWidth: '1px',
+            borderStyle: 'solid',
+            borderColor: this.getBorderColorForCategory(linterIssue.category),
+            overviewRulerColor: this.getRulerColorForCategory(linterIssue.category),
+            overviewRulerLane: vscode.OverviewRulerLane.Right,
+            after: {
+                contentText: `  // ${linterIssue.ruleId}: ${linterIssue.message.substring(0, 50)}${linterIssue.message.length > 50 ? '...' : ''}`,
+                color: new vscode.ThemeColor('editorLineNumber.foreground'),
+                fontStyle: 'italic'
+            },
+            isWholeLine: true
+        });
+
+        this.linterDecorations.set(id, decorationType);
+        return decorationType;
+    }
+
+    /**
+     * Applies vulnerability decorations to all open text editors.
+     * 
+     * @param vulnerability The vulnerability to apply decorations for
+     */
+    private applyDecorationToEditors(vulnerability: Vulnerability): void {
+        if (!vulnerability.lines) return;
+        
+        const id = vulnerability.id || '';
+        const decorationType = this.vulnerabilityDecorations.get(id);
+        if (!decorationType) return;
+        
+        const hoverMessage = this.hoverMessages.get(id);
+
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) return;
+
+        for (const editor of vscode.window.visibleTextEditors) {
+            for (const location of vulnerability.lines) {
+                const relativePath = this.getRelativePath(editor.document.uri.fsPath, workspaceFolder.uri.fsPath);
+                
+                // If this editor contains the file with the vulnerability
+                if (relativePath.endsWith(location.contract) || location.contract.endsWith(relativePath)) {
+                    const decorationsArray: vscode.DecorationOptions[] = [];
+                    
+                    // Create decoration for each affected line
+                    for (const line of location.lines) {
+                        // Convert from 1-based to 0-based line number if needed
+                        const targetLine = Math.max(0, line - 1);
+                        
+                        if (targetLine < editor.document.lineCount) {
+                            const lineText = editor.document.lineAt(targetLine);
+                            
+                            decorationsArray.push({
+                                range: lineText.range,
+                                hoverMessage: hoverMessage
+                            });
+                        }
+                    }
+                    
+                    if (decorationsArray.length > 0) {
+                        editor.setDecorations(decorationType, decorationsArray);
+                    }
+                }
             }
         }
     }
     
     /**
-     * Cleans up resources used by the decoration manager.
+     * Applies linter issue decorations to all open text editors.
+     * 
+     * @param linterIssue The linter issue to apply decorations for
+     */
+    private applyLinterDecorationToEditors(linterIssue: LinterResult): void {
+        if (!linterIssue.filePath || !linterIssue.line) return;
+        
+        const id = `lint-${linterIssue.filePath}-${linterIssue.line}-${linterIssue.ruleId}`;
+        const decorationType = this.linterDecorations.get(id);
+        if (!decorationType) return;
+        
+        const hoverMessage = this.hoverMessages.get(id);
+
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+        if (!workspaceFolder) return;
+
+        for (const editor of vscode.window.visibleTextEditors) {
+            const relativePath = this.getRelativePath(editor.document.uri.fsPath, workspaceFolder.uri.fsPath);
+            
+            // If this editor contains the file with the linter issue
+            if (relativePath.endsWith(linterIssue.filePath) || linterIssue.filePath.endsWith(relativePath)) {
+                const decorationsArray: vscode.DecorationOptions[] = [];
+                
+                // Convert from 1-based to 0-based line number if needed
+                const targetLine = Math.max(0, linterIssue.line - 1);
+                
+                if (targetLine < editor.document.lineCount) {
+                    const lineText = editor.document.lineAt(targetLine);
+                    
+                    decorationsArray.push({
+                        range: lineText.range,
+                        hoverMessage: hoverMessage
+                    });
+                }
+                
+                if (decorationsArray.length > 0) {
+                    editor.setDecorations(decorationType, decorationsArray);
+                }
+            }
+        }
+    }
+
+    /**
+     * Dismisses all highlights from the editor.
+     */
+    public dismissHighlights(): void {
+        this.logger.info('Dismissing all highlights');
+        
+        // Dispose all vulnerability decorations
+        for (const decoration of this.vulnerabilityDecorations.values()) {
+            decoration.dispose();
+        }
+        this.vulnerabilityDecorations.clear();
+        
+        // Dispose all linter decorations
+        for (const decoration of this.linterDecorations.values()) {
+            decoration.dispose();
+        }
+        this.linterDecorations.clear();
+        
+        // Clear stored hover messages
+        this.hoverMessages.clear();
+    }
+
+    /**
+     * Dismisses a single highlight from the editor.
+     * 
+     * @param id The ID of the decoration to dismiss
+     */
+    public dismissSingleHighlight(id: string): void {
+        // Try to dismiss as vulnerability decoration
+        const vulnDecoration = this.vulnerabilityDecorations.get(id);
+        if (vulnDecoration) {
+            this.logger.info(`Dismissing vulnerability highlight with ID: ${id}`);
+            vulnDecoration.dispose();
+            this.vulnerabilityDecorations.delete(id);
+            this.hoverMessages.delete(id);
+            return;
+        }
+        
+        // Try to dismiss as linter decoration
+        const linterDecoration = this.linterDecorations.get(id);
+        if (linterDecoration) {
+            this.logger.info(`Dismissing linter highlight with ID: ${id}`);
+            linterDecoration.dispose();
+            this.linterDecorations.delete(id);
+            this.hoverMessages.delete(id);
+            return;
+        }
+        
+        this.logger.warn(`No decoration found with ID: ${id}`);
+    }
+
+    /**
+     * Cleans up resources when the extension is deactivated.
      */
     public dispose(): void {
         this.dismissHighlights();
-        this.errorHighlightDecoration.dispose();
+    }
+
+    /**
+     * Gets the relative path of a file to a base path.
+     * 
+     * @param filePath The absolute file path
+     * @param basePath The base path
+     * @returns The relative path
+     */
+    private getRelativePath(filePath: string, basePath: string): string {
+        if (filePath.startsWith(basePath)) {
+            return filePath.substring(basePath.length + 1);
+        }
+        return filePath;
+    }
+
+    /**
+     * Gets the background color for a vulnerability impact level.
+     * 
+     * @param impact The impact level
+     * @returns The color string
+     */
+    private getBackgroundColorForImpact(impact: string): string {
+        switch (impact.toLowerCase()) {
+            case 'critical': return 'rgba(191, 7, 7, 0.2)';
+            case 'high': return 'rgba(255, 73, 73, 0.15)';
+            case 'medium': return 'rgba(255, 157, 0, 0.15)';
+            case 'low': return 'rgba(255, 204, 0, 0.15)';
+            case 'optimization': return 'rgba(0, 153, 255, 0.15)';
+            case 'informational': return 'rgba(173, 216, 230, 0.15)';
+            default: return 'rgba(200, 200, 200, 0.15)';
+        }
+    }
+
+    /**
+     * Gets the border color for a vulnerability impact level.
+     * 
+     * @param impact The impact level
+     * @returns The color string
+     */
+    private getBorderColorForImpact(impact: string): string {
+        switch (impact.toLowerCase()) {
+            case 'critical': return 'rgba(191, 7, 7, 0.5)';
+            case 'high': return 'rgba(255, 73, 73, 0.5)';
+            case 'medium': return 'rgba(255, 157, 0, 0.5)';
+            case 'low': return 'rgba(255, 204, 0, 0.5)';
+            case 'optimization': return 'rgba(0, 153, 255, 0.5)';
+            case 'informational': return 'rgba(173, 216, 230, 0.5)';
+            default: return 'rgba(200, 200, 200, 0.5)';
+        }
+    }
+
+    /**
+     * Gets the ruler color for a vulnerability impact level.
+     * 
+     * @param impact The impact level
+     * @returns The color string
+     */
+    private getRulerColorForImpact(impact: string): string {
+        switch (impact.toLowerCase()) {
+            case 'critical': return 'rgba(191, 7, 7, 1)';
+            case 'high': return 'rgba(255, 73, 73, 1)';
+            case 'medium': return 'rgba(255, 157, 0, 1)';
+            case 'low': return 'rgba(255, 204, 0, 1)';
+            case 'optimization': return 'rgba(0, 153, 255, 1)';
+            case 'informational': return 'rgba(173, 216, 230, 1)';
+            default: return 'rgba(200, 200, 200, 1)';
+        }
+    }
+    
+    /**
+     * Gets the background color for a linter issue category.
+     * 
+     * @param category The category
+     * @returns The color string
+     */
+    private getBackgroundColorForCategory(category?: string): string {
+        if (!category) return 'rgba(200, 200, 200, 0.15)';
+        
+        switch (category) {
+            case 'Security': return 'rgba(255, 73, 73, 0.15)';
+            case 'Gas Consumption': return 'rgba(255, 157, 0, 0.15)';
+            case 'Best Practice': return 'rgba(0, 153, 255, 0.15)';
+            case 'Style Guide': return 'rgba(138, 43, 226, 0.15)';
+            default: return 'rgba(200, 200, 200, 0.15)';
+        }
+    }
+    
+    /**
+     * Gets the border color for a linter issue category.
+     * 
+     * @param category The category
+     * @returns The color string
+     */
+    private getBorderColorForCategory(category?: string): string {
+        if (!category) return 'rgba(200, 200, 200, 0.5)';
+        
+        switch (category) {
+            case 'Security': return 'rgba(255, 73, 73, 0.5)';
+            case 'Gas Consumption': return 'rgba(255, 157, 0, 0.5)';
+            case 'Best Practice': return 'rgba(0, 153, 255, 0.5)';
+            case 'Style Guide': return 'rgba(138, 43, 226, 0.5)';
+            default: return 'rgba(200, 200, 200, 0.5)';
+        }
+    }
+    
+    /**
+     * Gets the ruler color for a linter issue category.
+     * 
+     * @param category The category
+     * @returns The color string
+     */
+    private getRulerColorForCategory(category?: string): string {
+        if (!category) return 'rgba(200, 200, 200, 1)';
+        
+        switch (category) {
+            case 'Security': return 'rgba(255, 73, 73, 1)';
+            case 'Gas Consumption': return 'rgba(255, 157, 0, 1)';
+            case 'Best Practice': return 'rgba(0, 153, 255, 1)';
+            case 'Style Guide': return 'rgba(138, 43, 226, 1)';
+            default: return 'rgba(200, 200, 200, 1)';
+        }
+    }
+    
+    /**
+     * Gets the severity text for a numeric severity level.
+     * 
+     * @param severity The severity level
+     * @returns The severity text
+     */
+    private getSeverityText(severity: number): string {
+        switch(severity) {
+            case 0: return "Info";
+            case 1: return "Warning";
+            case 2: return "Error";
+            default: return "Unknown";
+        }
     }
 }

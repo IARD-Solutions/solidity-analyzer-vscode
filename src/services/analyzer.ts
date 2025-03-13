@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { ApiResponse, CodeObject, Vulnerability } from '../models/types';
-import { handleVulnerabilities } from '../utils/vulnerabilityProcessor';
+import { ApiResponse, CodeObject, Vulnerability, LinterResult } from '../models/types';
+import { handleVulnerabilities, handleLinterResults } from '../utils/vulnerabilityProcessor';
 import { LoggingService } from './loggingService';
 
 /**
@@ -29,10 +29,13 @@ export class SolidityAnalyzer {
     /**
      * Analyzes all Solidity files in the current workspace.
      * 
-     * @returns A promise resolving to processed vulnerabilities
+     * @returns A promise resolving to processed vulnerabilities and linter results
      * @throws Error if no workspace is open or API request fails
      */
-    public async analyzeAllSolidityFiles(): Promise<Vulnerability[]> {
+    public async analyzeAllSolidityFiles(): Promise<{
+        vulnerabilities: Vulnerability[],
+        linterResults: LinterResult[]
+    }> {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
         if (!workspaceFolder) {
@@ -64,10 +67,13 @@ export class SolidityAnalyzer {
     /**
      * Analyzes the currently active Solidity file and its imports.
      * 
-     * @returns A promise resolving to processed vulnerabilities
+     * @returns A promise resolving to processed vulnerabilities and linter results
      * @throws Error if the current file is not a Solidity file or API request fails
      */
-    public async analyzeCurrentSolidityFile(): Promise<Vulnerability[]> {
+    public async analyzeCurrentSolidityFile(): Promise<{
+        vulnerabilities: Vulnerability[],
+        linterResults: LinterResult[]
+    }> {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             this.logger.error('No active editor found');
@@ -149,10 +155,13 @@ export class SolidityAnalyzer {
      * Sends code to the API for analysis and processes the vulnerabilities.
      * 
      * @param codeObject Object containing code content by file path
-     * @returns A promise resolving to processed vulnerabilities
+     * @returns A promise resolving to processed vulnerabilities and linter results
      * @throws Error if the API request fails
      */
-    private async analyzeCode(codeObject: CodeObject): Promise<Vulnerability[]> {
+    private async analyzeCode(codeObject: CodeObject): Promise<{
+        vulnerabilities: Vulnerability[],
+        linterResults: LinterResult[]
+    }> {
         try {
             this.logger.info(`Sending ${Object.keys(codeObject).length} files to API for analysis`);
             
@@ -173,10 +182,19 @@ export class SolidityAnalyzer {
 
             this.logger.debug('API response received, processing');
             const data = await response.json() as ApiResponse;
+            
+            // Process vulnerabilities
             const vulnerabilities = handleVulnerabilities(data.result);
             this.logger.info(`Analysis complete: found ${vulnerabilities.length} vulnerabilities`);
             
-            return vulnerabilities;
+            // Process linter results if available
+            let linterResults: LinterResult[] = [];
+            if (data.linter) {
+                linterResults = handleLinterResults(data.linter);
+                this.logger.info(`Linting complete: found ${linterResults.length} issues`);
+            }
+            
+            return { vulnerabilities, linterResults };
         } catch (error) {
             this.logger.error('Failed to analyze Solidity code', error);
             throw new Error(`Failed to analyze Solidity code: ${error}`);

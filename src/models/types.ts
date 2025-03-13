@@ -25,6 +25,7 @@ export interface Vulnerability {
 export interface ApiResponse {
     /** Array of detected vulnerabilities */
     result: Vulnerability[];
+    linter?: string;
 }
 
 /**
@@ -34,4 +35,16 @@ export interface CodeObject {
     [filePath: string]: {
         content: string;
     };
+}
+
+export type Category = "Best Practice" | "Style Guide" | "Gas Consumption" | "Security" | "Miscellaneous";
+
+export interface LinterResult {
+    line: number;
+    column?: number;
+    severity: number;
+    message: string;
+    ruleId: string;
+    filePath?: string;
+    category?: Category;
 }
