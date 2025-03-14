@@ -5,7 +5,7 @@
  */
 
 /**
- * Raw vulnerability data from the Solidity analyzer API
+ * Represents the raw vulnerability data from the API.
  * 
  * @example
  * {
@@ -50,7 +50,7 @@ export interface RawVulnerability {
 }
 
 /**
- * Raw linter result data from the linter API
+ * Represents the raw linter result data from the API.
  * 
  * @example
  * {
@@ -80,7 +80,7 @@ export interface RawLinterResult {
 }
 
 /**
- * Structure of the Solidity analyzer API response
+ * Represents the API response structure.
  * This is the top-level object returned by the analyzer API
  * 
  * @example
@@ -89,35 +89,34 @@ export interface RawLinterResult {
  *   "linterResults": "...",  // Can be string, array, or object
  * }
  */
-export interface AnalyzerApiResponse {
+export interface ApiResponse {
     /** Array of detected vulnerabilities */
-    vulnerabilities: RawVulnerability[];
+    result: RawVulnerability[];
     /** 
      * Linter results in various possible formats:
      * - String: Raw text output from the linter
      * - Array: Direct array of linter results
      * - Object: Container with a "results" property holding the array
      */
-    linterResults?: string | RawLinterResult[] | {
-        results: RawLinterResult[];
-    };
+    linter: string;
     /** Additional fields that might be in the API response */
-    [key: string]: any;
+    success?: boolean;
+    error?: string;
 }
 
 /**
- * Structured linter output from text-based format
+ * Represents a parsed line from text-based linter output.
  * Used for intermediate processing when parsing console output from linters
  */
 export interface ParsedLinterLine {
     /** Line number where the issue was found */
-    lineNumber: number;
+    line: number;
     /** Column number where the issue was found */
     column: number;
     /** Severity level as text: "error", "warning", or "info" */
-    level: string;
+    severity: string;
     /** Human-readable description of the issue */
     message: string;
     /** Unique identifier for the linter rule that was violated */
-    ruleId: string;
+    ruleId?: string;
 }

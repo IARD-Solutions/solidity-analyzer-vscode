@@ -27,7 +27,7 @@ export class SolidityAnalyzer {
     }
 
     /**
-     * Analyzes all Solidity files in the current workspace.
+     * Analyzes all Solidity files in the current workspace by dependency groups.
      * 
      * @returns A promise resolving to processed vulnerabilities and linter results
      * @throws Error if no workspace is open or API request fails
@@ -52,16 +52,152 @@ export class SolidityAnalyzer {
         }
 
         this.logger.info(`Found ${solidityFiles.length} Solidity files to analyze`);
-        const codeObject: CodeObject = {};
 
-        for (const file of solidityFiles) {
-            const relativePath = path.relative(workspaceFolder.uri.fsPath, file.fsPath);
-            const document = await vscode.workspace.openTextDocument(file);
-            codeObject[relativePath] = { content: document.getText() };
-            this.logger.debug(`Added file to analysis: ${relativePath}`);
+        // Build dependency graph
+        const graph = await this.buildDependencyGraph(solidityFiles, workspaceFolder);
+
+        // Find connected components (file groups) in the graph
+        const fileGroups = this.findConnectedComponents(graph);
+
+        this.logger.info(`Identified ${fileGroups.length} independent file groups for analysis`);
+
+        // Analyze each file group separately
+        let allVulnerabilities: Vulnerability[] = [];
+        let allLinterResults: LinterResult[] = [];
+
+        for (let i = 0; i < fileGroups.length; i++) {
+            const group = fileGroups[i];
+            this.logger.info(`Analyzing file group ${i + 1}/${fileGroups.length} with ${group.length} files`);
+
+            // Build code object for this group
+            const codeObject: CodeObject = {};
+            for (const filePath of group) {
+                try {
+                    const uri = vscode.Uri.file(filePath);
+                    const document = await vscode.workspace.openTextDocument(uri);
+                    const relativePath = path.relative(workspaceFolder.uri.fsPath, filePath);
+                    codeObject[relativePath] = { content: document.getText() };
+                } catch (error) {
+                    this.logger.warn(`Failed to open file: ${filePath}`, error);
+                }
+            }
+
+            if (Object.keys(codeObject).length === 0) {
+                this.logger.warn(`Skipping empty file group ${i + 1}`);
+                continue;
+            }
+
+            // Analyze this group
+            try {
+                const result = await this.analyzeCode(codeObject);
+                allVulnerabilities = [...allVulnerabilities, ...result.vulnerabilities];
+                allLinterResults = [...allLinterResults, ...result.linterResults];
+            } catch (error) {
+                this.logger.error(`Error analyzing file group ${i + 1}`, error);
+                // Continue with next group instead of failing completely
+            }
         }
 
-        return await this.analyzeCode(codeObject);
+        return {
+            vulnerabilities: allVulnerabilities,
+            linterResults: allLinterResults
+        };
+    }
+
+    /**
+     * Builds a dependency graph of Solidity files.
+     * 
+     * @param solidityFiles List of file URIs
+     * @param workspaceFolder The workspace folder
+     * @returns Map representing the dependency graph (file path -> array of dependencies)
+     */
+    private async buildDependencyGraph(
+        solidityFiles: vscode.Uri[],
+        workspaceFolder: vscode.WorkspaceFolder
+    ): Promise<Map<string, string[]>> {
+        const graph = new Map<string, string[]>();
+
+        // Initialize the graph with empty dependency arrays
+        for (const file of solidityFiles) {
+            graph.set(file.fsPath, []);
+        }
+
+        // Fill in dependencies
+        for (const file of solidityFiles) {
+            try {
+                const document = await vscode.workspace.openTextDocument(file);
+                const content = document.getText();
+
+                // Use regex to find imports
+                const importRegex = /import\s+(?:["'](?!@)(.+?\.sol)["']|{[^}]+}\s+from\s+["'](?!@)(.+?\.sol)["']);/g;
+                let match;
+
+                while ((match = importRegex.exec(content)) !== null) {
+                    const importPath = match[1] || match[2];
+                    if (!importPath) continue;
+
+                    // Resolve the absolute path of the imported file
+                    const absoluteImportPath = path.resolve(path.dirname(file.fsPath), importPath);
+
+                    // Add the dependency to the graph if it exists in our file list
+                    if (solidityFiles.some(uri => uri.fsPath === absoluteImportPath)) {
+                        const dependencies = graph.get(file.fsPath) || [];
+                        if (!dependencies.includes(absoluteImportPath)) {
+                            dependencies.push(absoluteImportPath);
+                            graph.set(file.fsPath, dependencies);
+                        }
+                    }
+                }
+            } catch (error) {
+                this.logger.warn(`Failed to analyze imports in ${file.fsPath}`, error);
+            }
+        }
+
+        return graph;
+    }
+
+    /**
+     * Finds connected components in the dependency graph.
+     * Each component represents a group of files that should be analyzed together.
+     * 
+     * @param graph The dependency graph
+     * @returns Array of file groups (each group is an array of file paths)
+     */
+    private findConnectedComponents(graph: Map<string, string[]>): string[][] {
+        const visited = new Set<string>();
+        const fileGroups: string[][] = [];
+
+        // Helper function for DFS
+        const dfs = (node: string, component: string[]) => {
+            visited.add(node);
+            component.push(node);
+
+            // For each dependency of this file
+            const dependencies = graph.get(node) || [];
+            for (const dependency of dependencies) {
+                if (!visited.has(dependency)) {
+                    dfs(dependency, component);
+                }
+            }
+
+            // Check for reverse dependencies (files that import this file)
+            for (const [file, deps] of graph.entries()) {
+                if (!visited.has(file) && deps.includes(node)) {
+                    dfs(file, component);
+                }
+            }
+        };
+
+        // Find all connected components
+        for (const node of graph.keys()) {
+            if (!visited.has(node)) {
+                const component: string[] = [];
+                dfs(node, component);
+                fileGroups.push(component);
+            }
+        }
+
+        return fileGroups;
     }
 
     /**
@@ -176,7 +312,8 @@ export class SolidityAnalyzer {
         linterResults: LinterResult[]
     }> {
         try {
-            this.logger.info(`Sending ${Object.keys(codeObject).length} files to API for analysis`);
+            const fileNames = Object.keys(codeObject);
+            this.logger.info(`Sending ${fileNames.length} files to API for analysis: ${fileNames.join(', ')}`);
 
             const response = await fetch(this.apiURL, {
                 method: 'POST',
@@ -195,9 +332,22 @@ export class SolidityAnalyzer {
 
             this.logger.debug('API response received, processing');
             const data = await response.json() as ApiResponse;
+            this.logger.debug(`API response data: ${JSON.stringify(data)}`);
+            // Debug log the response content to help diagnose issues
+            this.logger.debug(`Raw API result has ${data.result?.length || 0} vulnerability entries`);
+
+            if (data.linter) {
+                // Log the linter data to see if it contains multiple files
+                const linterPreview = data.linter.substring(0, 500) + (data.linter.length > 500 ? '...' : '');
+                this.logger.debug(`Linter data preview: ${linterPreview}`);
+
+                // Count file mentions in linter output
+                const fileMatches = data.linter.match(/\.sol\s*$/gm);
+                this.logger.debug(`Found references to ${fileMatches?.length || 0} files in linter output`);
+            }
 
             // Process vulnerabilities
-            const vulnerabilities = handleVulnerabilities(data.result);
+            const vulnerabilities = handleVulnerabilities(data.result || []);
             this.logger.info(`Analysis complete: found ${vulnerabilities.length} vulnerabilities`);
 
             // Process linter results if available
@@ -205,6 +355,15 @@ export class SolidityAnalyzer {
             if (data.linter) {
                 linterResults = handleLinterResults(data.linter);
                 this.logger.info(`Linting complete: found ${linterResults.length} issues`);
+
+                // Log breakdown of linter results by file
+                const fileBreakdown = linterResults.reduce((acc, item) => {
+                    const file = item.filePath || 'Unknown';
+                    acc[file] = (acc[file] || 0) + 1;
+                    return acc;
+                }, {} as Record<string, number>);
+
+                this.logger.debug(`Linter issues by file: ${JSON.stringify(fileBreakdown)}`);
             }
 
             return { vulnerabilities, linterResults };
