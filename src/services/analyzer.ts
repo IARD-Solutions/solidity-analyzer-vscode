@@ -65,28 +65,22 @@ export class SolidityAnalyzer {
     }
 
     /**
-     * Analyzes the currently active Solidity file and its imports.
+     * Analyzes a specific Solidity document.
      * 
+     * @param document The document to analyze
      * @returns A promise resolving to processed vulnerabilities and linter results
-     * @throws Error if the current file is not a Solidity file or API request fails
+     * @throws Error if the document is not a Solidity file or API request fails
      */
-    public async analyzeCurrentSolidityFile(): Promise<{
+    public async analyzeSolidityDocument(document: vscode.TextDocument): Promise<{
         vulnerabilities: Vulnerability[],
         linterResults: LinterResult[]
     }> {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            this.logger.error('No active editor found');
-            throw new Error('No active editor found.');
-        }
-
-        const document = editor.document;
         if (document.languageId !== 'solidity') {
-            this.logger.error(`Current file has language ID: ${document.languageId}, not solidity`);
-            throw new Error('The current file is not a Solidity file.');
+            this.logger.error(`Document has language ID: ${document.languageId}, not solidity`);
+            throw new Error('The document is not a Solidity file.');
         }
 
-        this.logger.info(`Analyzing current Solidity file: ${document.fileName}`);
+        this.logger.info(`Analyzing Solidity document: ${document.fileName}`);
         const codeObject: CodeObject = {};
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
         
@@ -105,6 +99,25 @@ export class SolidityAnalyzer {
         this.logger.debug(`Finished processing imports, total files: ${Object.keys(codeObject).length}`);
 
         return await this.analyzeCode(codeObject);
+    }
+
+    /**
+     * Analyzes the currently active Solidity file and its imports.
+     * 
+     * @returns A promise resolving to processed vulnerabilities and linter results
+     * @throws Error if the current file is not a Solidity file or API request fails
+     */
+    public async analyzeCurrentSolidityFile(): Promise<{
+        vulnerabilities: Vulnerability[],
+        linterResults: LinterResult[]
+    }> {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            this.logger.error('No active editor found');
+            throw new Error('No active editor found.');
+        }
+
+        return await this.analyzeSolidityDocument(editor.document);
     }
 
     /**

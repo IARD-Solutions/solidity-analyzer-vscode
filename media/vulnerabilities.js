@@ -447,7 +447,7 @@
                         table.appendChild(messageRow);
                         details.appendChild(table);
                         
-                        // Create actions area with improved focus button
+                        // Create actions area with better positioning of buttons
                         const actions = document.createElement('div');
                         actions.className = 'vulnerability-actions';
                         
@@ -458,6 +458,16 @@
                             <span class="codicon codicon-selection"></span> Focus
                         `;
                         
+                        // Create a more visible ignore rule button
+                        const ignoreButton = document.createElement('button');
+                        ignoreButton.className = 'action-button ignore-button';
+                        ignoreButton.dataset.ruleId = result.ruleId;
+                        ignoreButton.title = `Ignore ${result.ruleId} rule in future analyses`;
+                        ignoreButton.innerHTML = `
+                            <span class="codicon codicon-mute"></span> Ignore Rule
+                        `;
+                        
+                        // Set up event handlers for buttons
                         focusButton.addEventListener('click', function(e) {
                             e.stopPropagation(); // Don't toggle expansion
                             const index = parseInt(this.dataset.index, 10);
@@ -469,7 +479,20 @@
                             }
                         });
                         
+                        ignoreButton.addEventListener('click', function(e) {
+                            e.stopPropagation(); // Don't toggle expansion
+                            const ruleId = this.dataset.ruleId;
+                            if (ruleId) {
+                                vscode.postMessage({
+                                    command: 'ignoreLinterRule',
+                                    ruleId: ruleId
+                                });
+                            }
+                        });
+                        
+                        // Add both buttons to the actions area
                         actions.appendChild(focusButton);
+                        actions.appendChild(ignoreButton);
                         details.appendChild(actions);
                         
                         li.appendChild(details);
@@ -508,6 +531,169 @@
         } finally {
             // Hide loading indicator
             if (linterLoading) linterLoading.style.display = 'none';
+        }
+    }
+    
+    // Add message listener to handle rule ignore updates from the extension
+    window.addEventListener('message', event => {
+        const message = event.data;
+        
+        switch (message.command) {
+            case 'ruleIgnored':
+                // When a rule is ignored, update the UI to hide matching rules
+                const ruleId = message.ruleId;
+                if (ruleId) {
+                    console.log(`Rule ignored: ${ruleId}. Updating UI.`);
+                    
+                    // Find all linter items with this rule ID
+                    const itemsToRemove = [];
+                    const linterItems = document.querySelectorAll('.linter-item');
+                    linterItems.forEach(item => {
+                        // Find the associated linter result
+                        const index = parseInt(item.dataset.index, 10);
+                        if (index >= 0 && index < state.linterResults.length) {
+                            const result = state.linterResults[index];
+                            if (result.ruleId === ruleId) {
+                                itemsToRemove.push(item);
+                                // Store the item data so we can restore it later if needed
+                                item.dataset.ruleData = JSON.stringify(result);
+                            }
+                        }
+                    });
+                    
+                    // Remove items with animations
+                    let removedCount = 0;
+                    itemsToRemove.forEach(item => {
+                        item.style.transition = 'opacity 0.3s ease, max-height 0.3s ease';
+                        item.style.opacity = '0';
+                        item.style.maxHeight = '0';
+                        item.style.overflow = 'hidden';
+                        item.style.marginBottom = '0';
+                        
+                        // Remove from DOM after animation finishes
+                        setTimeout(() => {
+                            // Instead of removing, hide the item and add a data attribute to mark it as ignored
+                            item.classList.add('ignored-rule');
+                            item.style.display = 'none';
+                            
+                            removedCount++;
+                            
+                            // If all items are removed, check if we need to update category headers
+                            if (removedCount === itemsToRemove.length) {
+                                updateCategoryHeaders();
+                                updateLinterCount();
+                            }
+                        }, 300);
+                    });
+                }
+                break;
+                
+            case 'ruleRestored':
+                // When a rule is restored (undo ignore), show it again in the UI
+                const restoredRuleId = message.ruleId;
+                if (restoredRuleId) {
+                    console.log(`Rule restored: ${restoredRuleId}. Updating UI.`);
+                    
+                    // Find all hidden items with this rule ID
+                    const ignoredItems = document.querySelectorAll(`.ignored-rule`);
+                    const itemsToRestore = [];
+                    
+                    ignoredItems.forEach(item => {
+                        // Try to get the stored rule data
+                        try {
+                            const ruleData = JSON.parse(item.dataset.ruleData || '{}');
+                            if (ruleData.ruleId === restoredRuleId) {
+                                itemsToRestore.push(item);
+                            }
+                        } catch (e) {
+                            console.error('Error parsing rule data:', e);
+                        }
+                    });
+                    
+                    // Restore items with animations
+                    if (itemsToRestore.length > 0) {
+                        itemsToRestore.forEach(item => {
+                            // Reset the item styling
+                            item.classList.remove('ignored-rule');
+                            item.style.display = '';
+                            item.style.maxHeight = '';
+                            item.style.overflow = '';
+                            item.style.marginBottom = '';
+                            
+                            // Animate it back in
+                            setTimeout(() => {
+                                item.style.opacity = '1';
+                            }, 10);
+                        });
+                        
+                        // Update the UI after restoring items
+                        updateCategoryHeaders();
+                        updateLinterCount();
+                    } else {
+                        // If no items were found to restore, we might need to re-analyze
+                        console.log('No items found to restore, consider re-analyzing');
+                    }
+                }
+                break;
+        }
+    });
+    
+    // Helper function to update category headers after items are removed
+    function updateCategoryHeaders() {
+        // Get all category headers
+        const headers = document.querySelectorAll('.category-group-header');
+        
+        headers.forEach(header => {
+            const categoryName = header.querySelector('span:first-child').textContent;
+            const nextItem = header.nextElementSibling;
+            
+            // If next element isn't a linter item or no next element, remove the header
+            if (!nextItem || !nextItem.classList.contains('linter-item')) {
+                header.style.transition = 'opacity 0.3s ease, max-height 0.3s ease';
+                header.style.opacity = '0';
+                header.style.maxHeight = '0';
+                header.style.overflow = 'hidden';
+                header.style.marginTop = '0';
+                header.style.marginBottom = '0';
+                
+                setTimeout(() => {
+                    header.remove();
+                }, 300);
+            } else {
+                // Count remaining items in this category
+                let count = 0;
+                let current = nextItem;
+                
+                while (current && current.classList.contains('linter-item')) {
+                    count++;
+                    current = current.nextElementSibling;
+                }
+                
+                // Update the count in the header
+                const countElement = header.querySelector('.count');
+                if (countElement) {
+                    countElement.textContent = count;
+                }
+            }
+        });
+    }
+    
+    // Helper function to update the linter count in the tab after removing items
+    function updateLinterCount() {
+        // Update the linter tab badge
+        const visibleItems = document.querySelectorAll('#linter-list .linter-item');
+        const linterTabBadge = document.querySelector('.tab[data-tab="linter"] .tab-badge');
+        
+        if (linterTabBadge) {
+            linterTabBadge.textContent = visibleItems.length;
+        }
+        
+        // If no items left, show the "no results" message
+        if (visibleItems.length === 0) {
+            const noResultsElement = document.getElementById('linter-no-results');
+            if (noResultsElement) {
+                noResultsElement.style.display = 'flex';
+            }
         }
     }
     

@@ -35,6 +35,11 @@
         "command": "extension.dismissHighlights",
         "title": "Dismiss vulnerability highlights",
         "category": "Solidity Analyzer"
+      },
+      {
+        "command": "extension.ignoreLinterRule",
+        "title": "Ignore this linter rule",
+        "category": "Solidity Analyzer"
       }
     ],
     "menus": {
@@ -130,37 +135,67 @@
           ],
           "description": "Show vulnerabilities with these severity levels"
         },
-        "solidityAnalyzer.highlightColors": {
-          "type": "object",
-          "properties": {
-            "Critical": {
-              "type": "string",
-              "default": "rgba(255,0,0,0.3)",
-              "description": "Highlight color for Critical vulnerabilities"
-            },
-            "High": {
-              "type": "string",
-              "default": "rgba(255,127,0,0.3)",
-              "description": "Highlight color for High vulnerabilities"
-            },
-            "Medium": {
-              "type": "string",
-              "default": "rgba(255,255,0,0.3)",
-              "description": "Highlight color for Medium vulnerabilities"
-            },
-            "Low": {
-              "type": "string",
-              "default": "rgba(0,127,255,0.3)",
-              "description": "Highlight color for Low vulnerabilities"
-            }
-          },
-          "default": {
-            "Critical": "rgba(255,0,0,0.3)",
-            "High": "rgba(255,127,0,0.3)",
-            "Medium": "rgba(255,255,0,0.3)",
-            "Low": "rgba(0,127,255,0.3)"
-          },
-          "description": "Custom highlight colors for different vulnerability severities"
+        "solidityAnalyzer.filterSeverity": {
+          "type": "array",
+          "default": [],
+          "description": "Filter vulnerabilities by severity level",
+          "items": {
+            "type": "string",
+            "enum": ["Critical", "High", "Medium", "Low", "Informational", "Optimization"]
+          }
+        },
+        "solidityAnalyzer.filterLintCategories": {
+          "type": "array",
+          "default": [],
+          "description": "Filter linter issues by category",
+          "items": {
+            "type": "string",
+            "enum": ["Security", "Gas Consumption", "Best Practice", "Style Guide", "Miscellaneous"]
+          }
+        },
+        "solidityAnalyzer.filterLintSeverity": {
+          "type": "array",
+          "default": [],
+          "description": "Filter linter issues by severity level",
+          "items": {
+            "type": "string",
+            "enum": ["Error", "Warning", "Info"]
+          }
+        },
+        "solidityAnalyzer.enableLinting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable linting functionality"
+        },
+        "solidityAnalyzer.lintIgnoreRules": {
+          "type": "array",
+          "default": [],
+          "description": "List of linting rule IDs to ignore. You can add rules manually or by right-clicking on a linter issue and selecting 'Ignore this linter rule'.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "solidityAnalyzer.lintIgnorePresets": {
+          "type": "array",
+          "default": [],
+          "description": "Predefined sets of rules to ignore",
+          "items": {
+            "type": "string",
+            "enum": [
+              "style-only",
+              "naming-conventions",
+              "gas-optimizations-advanced",
+              "documentation-rules"
+            ]
+          }
+        },
+        "solidityAnalyzer.lintIgnoreRules": {
+          "type": "array",
+          "default": [],
+          "description": "List of linting rule IDs to ignore",
+          "items": {
+            "type": "string"
+          }
         },
         "solidityAnalyzer.hideStatusBar": {
           "type": "boolean",

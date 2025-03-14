@@ -17,6 +17,7 @@ Welcome to the Solidity Analyzer extension for Visual Studio Code. This extensio
 ## Requirements
 
 - Visual Studio Code version 1.96.0 or higher.
+- Node.js 14.0 or higher for some linting features.
 
 ## Installation
 
@@ -30,12 +31,49 @@ You can install this extension through the VS Code marketplace:
 
 1. Open a Solidity file or workspace containing Solidity files
 2. Use the command palette (Ctrl+Shift+P) and search for "Solidity Analyzer"
-3. Select the desired analysis option
+3. Select the desired analysis option:
+   - `Solidity Analyzer: Analyze Current File` - Analyze only the active Solidity file
+   - `Solidity Analyzer: Analyze All Solidity Files` - Analyze all Solidity files in the workspace
 4. View results in the editor and detailed panel
 
-You can also:
+### Quick Access
 - Click the shield icon in the status bar to analyze the current file
 - Configure auto-analysis on save in the extension settings
+
+### Example Workflow
+```solidity
+// Example vulnerable contract
+contract Vulnerable {
+    function withdraw(uint amount) public {
+        require(amount > 0);
+        msg.sender.transfer(amount); // Potential reentrancy vulnerability
+    }
+}
+```
+
+When analyzing this contract, the extension will:
+1. Highlight the vulnerable line directly in your editor
+2. Show detailed information in the analysis panel
+3. Group issues by severity and category
+
+## Troubleshooting
+
+### Common Issues
+
+1. **No issues detected when expected**
+   - Check that the solidity file has been saved
+   - Verify that no filters are excluding your issues
+   - Try analyzing with the "Analyze All Solidity Files" command
+
+2. **Analysis fails with error**
+   - Check your internet connection
+   - View logs for more details (see Debugging and Logs section)
+   - Ensure your contract is compiling
+
+3. **Highlights not showing in editor**
+   - Close and reopen the file
+   - Restart VS Code
+   - Check that the issue location correctly maps to your code
 
 ## Debugging and Logs
 
@@ -54,7 +92,10 @@ This extension contributes the following settings:
 - `solidityAnalyzer.logLevel`: Set the logging level for the extension (`debug`, `info`, `warn`, `error`).
 - `solidityAnalyzer.autoAnalyzeOnSave`: Automatically run analysis when saving Solidity files.
 - `solidityAnalyzer.filterSeverity`: Show vulnerabilities with selected severity levels (Critical, High, Medium, Low, Informational, Optimization).
-- `solidityAnalyzer.highlightColors`: Custom highlight colors for different vulnerability severities.
+- `solidityAnalyzer.filterLintCategories`: Filter linter issues by category (Security, Gas Consumption, Best Practice, Style Guide, Miscellaneous).
+- `solidityAnalyzer.filterLintSeverity`: Filter linter issues by severity level (Error, Warning, Info).
+- `solidityAnalyzer.enableLinting`: Enable or disable linting functionality (true/false).
+- `solidityAnalyzer.lintIgnoreRules`: List of linting rule IDs to ignore (e.g., ["no-unused-vars", "func-visibility"]).
 - `solidityAnalyzer.hideStatusBar`: Hide the Solidity Analyzer status bar item.
 
 ## Known Issues

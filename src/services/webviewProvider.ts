@@ -9,8 +9,8 @@ import { formatRuleId } from '../utils/vulnerabilityProcessor';
  */
 export class WebviewProvider {
     private readonly logger: LoggingService;
-    // Static property to track the current panel
-    private static currentPanel: vscode.WebviewPanel | undefined;
+    // Make currentPanel public static so it can be accessed from the extension.ts
+    public static currentPanel: vscode.WebviewPanel | undefined;
 
     /**
      * Creates a new WebviewProvider instance.
@@ -107,6 +107,10 @@ export class WebviewProvider {
                         return;
                     case 'logError':
                         this.logger.error(`Webview error: ${message.error}`);
+                        return;
+                    case 'ignoreLinterRule':
+                        this.logger.info(`User requested to ignore linter rule: ${message.ruleId}`);
+                        vscode.commands.executeCommand('extension.ignoreLinterRule', message.ruleId);
                         return;
                     default:
                         this.logger.warn(`Unknown message command received from webview: ${message.command}`);
