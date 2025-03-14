@@ -151,6 +151,38 @@
     }
 
     /**
+     * Handles collapsing/expanding category headers
+     * 
+     * @param {HTMLElement} header - The header element that was clicked
+     */
+    function toggleCategoryGroup(header) {
+        const headerStyle = window.getComputedStyle(header);
+        const headerPadding = headerStyle.paddingLeft;
+        let current = header.nextElementSibling;
+
+        // Check if header is already collapsed (we'll use a data attribute to track state)
+        const isCollapsed = header.dataset.collapsed === "true";
+
+        // Toggle the collapsed state
+        header.dataset.collapsed = isCollapsed ? "false" : "true";
+
+        // Find all elements under this header until we hit another header of the same level
+        const childElements = [];
+        while (current &&
+            (!current.classList.contains('category-group-header') ||
+                window.getComputedStyle(current).paddingLeft !== headerPadding)) {
+            childElements.push(current);
+            current = current.nextElementSibling;
+        }
+
+        // Apply the display style based on the new collapsed state
+        const newDisplayStyle = isCollapsed ? "" : "none";
+        childElements.forEach(element => {
+            element.style.display = newDisplayStyle;
+        });
+    }
+
+    /**
      * Creates a severity badge UI element
      * 
      * @param {string} impact - The impact level (Critical, High, etc.)
@@ -244,7 +276,37 @@
 
                 noResultsElement.style.display = 'none';
 
-                // Sort vulnerabilities by severity with proper ordering
+                // First group vulnerabilities by file
+                const fileGroups = {};
+
+                filteredVulnerabilities.forEach(vuln => {
+                    // Extract file from the first location or from the description
+                    let filePath = 'Unknown File';
+
+                    if (vuln.lines && vuln.lines.length > 0) {
+                        filePath = vuln.lines[0].contract || 'Unknown File';
+                    } else if (vuln.description) {
+                        // Try to extract file path from description if not in lines
+                        const fileMatch = vuln.description.match(/([^\s()]+\.sol)/);
+                        if (fileMatch) {
+                            filePath = fileMatch[1];
+                        }
+                    }
+
+                    if (!fileGroups[filePath]) {
+                        fileGroups[filePath] = {};
+                    }
+
+                    // Then group by impact within each file
+                    const impact = vuln.impact || 'Unknown';
+                    if (!fileGroups[filePath][impact]) {
+                        fileGroups[filePath][impact] = [];
+                    }
+
+                    fileGroups[filePath][impact].push(vuln);
+                });
+
+                // Sort the groups by severity
                 const severityOrder = {
                     'Critical': 0,
                     'High': 1,
@@ -254,78 +316,101 @@
                     'Informational': 5
                 };
 
-                // Group vulnerabilities by impact
-                const groupedVulns = groupItemsByProperty(filteredVulnerabilities, 'impact');
+                // Now render the file groups
+                Object.keys(fileGroups).sort().forEach(filePath => {
+                    // Add file header
+                    const fileHeader = document.createElement('div');
+                    fileHeader.className = 'category-group-header';
+                    fileHeader.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+                    fileHeader.style.padding = '10px';
+                    fileHeader.style.fontWeight = 'bold';
+                    fileHeader.style.marginTop = '20px';
 
-                // Sort the groups by severity
-                const sortedGroups = Object.keys(groupedVulns).sort((a, b) => {
-                    const orderA = severityOrder[a] !== undefined ? severityOrder[a] : 999;
-                    const orderB = severityOrder[b] !== undefined ? severityOrder[b] : 999;
-                    return orderA - orderB;
-                });
+                    // Count vulnerabilities in this file
+                    let fileVulnCount = 0;
+                    Object.values(fileGroups[filePath]).forEach(group => {
+                        fileVulnCount += group.length;
+                    });
 
-                // Create category groups for each impact level
-                sortedGroups.forEach(impact => {
-                    const items = groupedVulns[impact];
-
-                    // Create group header
-                    const groupHeader = document.createElement('div');
-                    groupHeader.className = 'category-group-header';
-                    groupHeader.innerHTML = `
-                        <span>${impact}</span>
-                        <span class="count">${items.length}</span>
+                    fileHeader.innerHTML = `
+                        <span>${filePath}</span>
+                        <span class="count">${fileVulnCount}</span>
                     `;
+                    vulnerabilityList.appendChild(fileHeader);
 
-                    vulnerabilityList.appendChild(groupHeader);
+                    // Sort impacts by severity for this file
+                    const sortedImpacts = Object.keys(fileGroups[filePath]).sort((a, b) => {
+                        const orderA = severityOrder[a] !== undefined ? severityOrder[a] : 999;
+                        const orderB = severityOrder[b] !== undefined ? severityOrder[b] : 999;
+                        return orderA - orderB;
+                    });
 
-                    // Add vulnerabilities in this group
-                    items.forEach((vuln, index) => {
-                        const li = document.createElement('li');
-                        li.className = `vulnerability-item impact-${(vuln.impact || 'medium').toLowerCase()}`;
-                        li.dataset.index = filteredVulnerabilities.indexOf(vuln);
+                    // Add impacts within this file
+                    sortedImpacts.forEach(impact => {
+                        const items = fileGroups[filePath][impact];
 
-                        // Get the first affected location for display
-                        const location = vuln.lines && vuln.lines.length > 0
-                            ? `${vuln.lines[0].contract}: Line ${vuln.lines[0].lines[0]}`
-                            : 'Location unknown';
-
-                        li.innerHTML = `
-                            <div class="vulnerability-header" onclick="toggleItemExpansion(this)">
-                                <div class="vulnerability-title">
-                                    <span class="arrow codicon codicon-chevron-right"></span>
-                                    <strong>${vuln.title || vuln.check}</strong>
-                                </div>
-                                <div class="vulnerability-meta">
-                                    <span class="vulnerability-location">${location}</span>
-                                </div>
-                            </div>
-                            <div class="vulnerability-details">
-                                <table class="detail-table">
-                                    <tr>
-                                        <td>Confidence:</td>
-                                        <td>${vuln.confidence || 'Medium'}</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Description:</td>
-                                        <td>${vuln.description || 'No description available'}</td>
-                                    </tr>
-                                </table>
-                                <div class="vulnerability-actions">
-                                    <button class="action-button focus-button" data-index="${li.dataset.index}" title="Focus on vulnerability in code">
-                                        <span class="codicon codicon-selection"></span> Focus
-                                    </button>
-                                </div>
-                            </div>
+                        // Create impact subgroup header
+                        const impactHeader = document.createElement('div');
+                        impactHeader.className = 'category-group-header';
+                        impactHeader.style.paddingLeft = '24px'; // Indent for hierarchy
+                        impactHeader.innerHTML = `
+                            <span>${impact}</span>
+                            <span class="count">${items.length}</span>
                         `;
+                        vulnerabilityList.appendChild(impactHeader);
 
-                        // Check if this item should be expanded
-                        if (state.expandedItems.has(vuln.id || `vuln-${li.dataset.index}`)) {
-                            li.classList.add('expanded');
-                            li.querySelector('.arrow')?.classList.add('expanded');
-                            li.querySelector('.vulnerability-details')?.classList.add('expanded');
-                        }
+                        // Add vulnerabilities in this impact group
+                        items.forEach(vuln => {
+                            // ...existing code to render individual vulnerability items...
+                            // Rest of your vulnerability item creation code
+                            const li = document.createElement('li');
+                            li.className = `vulnerability-item impact-${(vuln.impact || 'medium').toLowerCase()}`;
+                            li.dataset.index = filteredVulnerabilities.indexOf(vuln);
+                            li.style.marginLeft = '24px'; // Indent items under the impact
 
-                        vulnerabilityList.appendChild(li);
+                            // ...rest of your existing vulnerability item rendering code...
+                            const location = vuln.lines && vuln.lines.length > 0
+                                ? `${vuln.lines[0].contract}: Line ${vuln.lines[0].lines[0]}`
+                                : 'Location unknown';
+
+                            li.innerHTML = `
+                                <div class="vulnerability-header" onclick="toggleItemExpansion(this)">
+                                    <div class="vulnerability-title">
+                                        <span class="arrow codicon codicon-chevron-right"></span>
+                                        <strong>${vuln.title || vuln.check}</strong>
+                                    </div>
+                                    <div class="vulnerability-meta">
+                                        <span class="vulnerability-location">${location}</span>
+                                    </div>
+                                </div>
+                                <div class="vulnerability-details">
+                                    <table class="detail-table">
+                                        <tr>
+                                            <td>Confidence:</td>
+                                            <td>${vuln.confidence || 'Medium'}</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Description:</td>
+                                            <td>${vuln.description || 'No description available'}</td>
+                                        </tr>
+                                    </table>
+                                    <div class="vulnerability-actions">
+                                        <button class="action-button focus-button" data-index="${li.dataset.index}" title="Focus on vulnerability in code">
+                                            <span class="codicon codicon-selection"></span> Focus
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+
+                            // Check if this item should be expanded
+                            if (state.expandedItems.has(vuln.id || `vuln-${li.dataset.index}`)) {
+                                li.classList.add('expanded');
+                                li.querySelector('.arrow')?.classList.add('expanded');
+                                li.querySelector('.vulnerability-details')?.classList.add('expanded');
+                            }
+
+                            vulnerabilityList.appendChild(li);
+                        });
                     });
                 });
 
@@ -346,16 +431,16 @@
 
                 // Add event listeners for group headers to collapse/expand groups
                 document.querySelectorAll('.category-group-header').forEach(header => {
-                    header.addEventListener('click', function () {
-                        const nextSibling = this.nextElementSibling;
-                        let current = nextSibling;
+                    // Remove existing click listeners if any
+                    header.removeEventListener('click', headerClickHandler);
 
-                        // Toggle visibility of all items until the next header
-                        while (current && !current.classList.contains('category-group-header')) {
-                            current.style.display = current.style.display === 'none' ? '' : 'none';
-                            current = current.nextElementSibling;
-                        }
-                    });
+                    // Initialize the collapsed state attribute
+                    if (!header.hasAttribute('data-collapsed')) {
+                        header.dataset.collapsed = "false";
+                    }
+
+                    // Add the click handler
+                    header.addEventListener('click', headerClickHandler);
                 });
 
             } catch (error) {
@@ -374,6 +459,11 @@
                 loadingElement.style.display = 'none';
             }
         }, 50);
+    }
+
+    // Define the header click handler as a separate function for clean removal
+    function headerClickHandler(event) {
+        toggleCategoryGroup(this);
     }
 
     /**
@@ -417,172 +507,220 @@
             } else {
                 if (linterNoResults) linterNoResults.style.display = 'none';
 
-                // Group linter results by category
-                const groupedResults = groupItemsByProperty(filteredResults, 'category');
+                // First group by file path
+                const fileGroups = {};
 
-                // Sort the groups alphabetically
-                const sortedGroups = Object.keys(groupedResults).sort();
+                filteredResults.forEach(result => {
+                    const filePath = result.filePath || 'Unknown File';
+                    if (!fileGroups[filePath]) {
+                        fileGroups[filePath] = {};
+                    }
 
-                // Create category groups
-                sortedGroups.forEach(category => {
-                    const items = groupedResults[category];
+                    // Then group by category within each file
+                    const category = result.category || 'Miscellaneous';
+                    if (!fileGroups[filePath][category]) {
+                        fileGroups[filePath][category] = [];
+                    }
 
-                    // Create group header
-                    const groupHeader = document.createElement('div');
-                    groupHeader.className = 'category-group-header';
-                    groupHeader.innerHTML = `
-                        <span>${category || 'Miscellaneous'}</span>
-                        <span class="count">${items.length}</span>
+                    fileGroups[filePath][category].push(result);
+                });
+
+                // Clear the list first
+                linterList.innerHTML = '';
+
+                // Now render the file groups
+                Object.keys(fileGroups).sort().forEach(filePath => {
+                    // Add file header
+                    const fileHeader = document.createElement('div');
+                    fileHeader.className = 'category-group-header';
+                    fileHeader.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+                    fileHeader.style.padding = '10px';
+                    fileHeader.style.fontWeight = 'bold';
+                    fileHeader.style.marginTop = '20px';
+
+                    // Count linter issues in this file
+                    let fileIssueCount = 0;
+                    Object.values(fileGroups[filePath]).forEach(group => {
+                        fileIssueCount += group.length;
+                    });
+
+                    fileHeader.innerHTML = `
+                        <span>${filePath}</span>
+                        <span class="count">${fileIssueCount}</span>
                     `;
+                    linterList.appendChild(fileHeader);
 
-                    linterList.appendChild(groupHeader);
+                    // Sort categories alphabetically
+                    const sortedCategories = Object.keys(fileGroups[filePath]).sort();
 
-                    // Add linter issues in this group
-                    items.forEach((result, index) => {
-                        const li = document.createElement('li');
-                        const categoryClass = getCategoryClass(result.category);
+                    // Create category groups within each file
+                    sortedCategories.forEach(category => {
+                        const items = fileGroups[filePath][category];
 
-                        li.className = `linter-item category-${categoryClass}`;
-                        li.dataset.index = filteredResults.indexOf(result);
-
-                        // Create header element
-                        const header = document.createElement('div');
-                        header.className = 'vulnerability-header';
-                        header.onclick = function () { toggleItemExpansion(this); };
-
-                        // Create title div with appropriate styling
-                        const titleDiv = document.createElement('div');
-                        titleDiv.className = 'vulnerability-title';
-
-                        const arrow = document.createElement('span');
-                        arrow.className = 'arrow codicon codicon-chevron-right';
-                        titleDiv.appendChild(arrow);
-
-                        const title = document.createElement('strong');
-                        title.textContent = result.ruleId ? result.ruleId.replace(/-/g, ' ') : 'Unknown Rule';
-                        titleDiv.appendChild(title);
-
-                        header.appendChild(titleDiv);
-
-                        // Create metadata div (without severity)
-                        const metaDiv = document.createElement('div');
-                        metaDiv.className = 'vulnerability-meta';
-
-                        const locationSpan = document.createElement('span');
-                        locationSpan.className = 'vulnerability-location';
-                        const fileName = result.filePath ? result.filePath.split('/').pop() : 'Unknown';
-                        locationSpan.textContent = `${fileName}: Line ${result.line}${result.column ? ', Col ' + result.column : ''}`;
-                        metaDiv.appendChild(locationSpan);
-
-                        header.appendChild(metaDiv);
-                        li.appendChild(header);
-
-                        // Create details section with better formatting
-                        const details = document.createElement('div');
-                        details.className = 'vulnerability-details';
-
-                        const table = document.createElement('table');
-                        table.className = 'detail-table';
-
-                        // Add severity row (moved from header)
-                        const severityRow = document.createElement('tr');
-                        const severityLabel = document.createElement('td');
-                        severityLabel.textContent = 'Severity:';
-                        severityRow.appendChild(severityLabel);
-
-                        const severityValue = document.createElement('td');
-                        severityValue.textContent = getSeverityText(result.severity);
-                        severityRow.appendChild(severityValue);
-
-                        table.appendChild(severityRow);
-
-                        // Add message row
-                        const messageRow = document.createElement('tr');
-                        const messageLabel = document.createElement('td');
-                        messageLabel.textContent = 'Message:';
-                        messageRow.appendChild(messageLabel);
-
-                        const messageValue = document.createElement('td');
-                        messageValue.textContent = result.message || 'No description available';
-                        messageRow.appendChild(messageValue);
-
-                        table.appendChild(messageRow);
-                        details.appendChild(table);
-
-                        // Create actions area with better positioning of buttons
-                        const actions = document.createElement('div');
-                        actions.className = 'vulnerability-actions';
-
-                        const focusButton = document.createElement('button');
-                        focusButton.className = 'action-button focus-button';
-                        focusButton.dataset.index = li.dataset.index;
-                        focusButton.innerHTML = `
-                            <span class="codicon codicon-selection"></span> Focus
+                        // Create category subgroup header
+                        const categoryHeader = document.createElement('div');
+                        categoryHeader.className = 'category-group-header';
+                        categoryHeader.style.paddingLeft = '24px'; // Indent for hierarchy
+                        categoryHeader.innerHTML = `
+                            <span>${category || 'Miscellaneous'}</span>
+                            <span class="count">${items.length}</span>
                         `;
+                        linterList.appendChild(categoryHeader);
 
-                        // Create a more visible ignore rule button
-                        const ignoreButton = document.createElement('button');
-                        ignoreButton.className = 'action-button ignore-button';
-                        ignoreButton.dataset.ruleId = result.ruleId;
-                        ignoreButton.title = `Ignore ${result.ruleId} rule in future analyses`;
-                        ignoreButton.innerHTML = `
-                            <span class="codicon codicon-mute"></span> Ignore Rule
-                        `;
+                        // Add linter issues in this category
+                        items.forEach(result => {
+                            // ...existing code to render individual linter items...
+                            const li = document.createElement('li');
+                            const categoryClass = getCategoryClass(result.category);
 
-                        // Set up event handlers for buttons
-                        focusButton.addEventListener('click', function (e) {
-                            e.stopPropagation(); // Don't toggle expansion
-                            const index = parseInt(this.dataset.index, 10);
-                            if (index >= 0 && index < filteredResults.length) {
-                                vscode.postMessage({
-                                    command: 'focusOnLinterIssue',
-                                    linterIssue: filteredResults[index]
-                                });
+                            li.className = `linter-item category-${categoryClass}`;
+                            li.dataset.index = filteredResults.indexOf(result);
+                            li.style.marginLeft = '24px'; // Indent items under the category
+
+                            // ...rest of your existing linter item rendering code...
+                            // Keep the existing code for creating and populating linter items
+
+                            // ...existing linter item creation code...
+
+                            // Create header element
+                            const header = document.createElement('div');
+                            header.className = 'vulnerability-header';
+                            header.onclick = function () { toggleItemExpansion(this); };
+
+                            // Create title div with appropriate styling
+                            const titleDiv = document.createElement('div');
+                            titleDiv.className = 'vulnerability-title';
+
+                            const arrow = document.createElement('span');
+                            arrow.className = 'arrow codicon codicon-chevron-right';
+                            titleDiv.appendChild(arrow);
+
+                            const title = document.createElement('strong');
+                            title.textContent = result.ruleId ? result.ruleId.replace(/-/g, ' ') : 'Unknown Rule';
+                            titleDiv.appendChild(title);
+
+                            header.appendChild(titleDiv);
+
+                            // Create metadata div (without severity)
+                            const metaDiv = document.createElement('div');
+                            metaDiv.className = 'vulnerability-meta';
+
+                            const locationSpan = document.createElement('span');
+                            locationSpan.className = 'vulnerability-location';
+                            const fileName = result.filePath ? result.filePath.split('/').pop() : 'Unknown';
+                            locationSpan.textContent = `Line ${result.line}${result.column ? ', Col ' + result.column : ''}`;
+                            metaDiv.appendChild(locationSpan);
+
+                            header.appendChild(metaDiv);
+                            li.appendChild(header);
+
+                            // Create details section with better formatting
+                            const details = document.createElement('div');
+                            details.className = 'vulnerability-details';
+
+                            const table = document.createElement('table');
+                            table.className = 'detail-table';
+
+                            // Add severity row (moved from header)
+                            const severityRow = document.createElement('tr');
+                            const severityLabel = document.createElement('td');
+                            severityLabel.textContent = 'Severity:';
+                            severityRow.appendChild(severityLabel);
+
+                            const severityValue = document.createElement('td');
+                            severityValue.textContent = getSeverityText(result.severity);
+                            severityRow.appendChild(severityValue);
+
+                            table.appendChild(severityRow);
+
+                            // Add message row
+                            const messageRow = document.createElement('tr');
+                            const messageLabel = document.createElement('td');
+                            messageLabel.textContent = 'Message:';
+                            messageRow.appendChild(messageLabel);
+
+                            const messageValue = document.createElement('td');
+                            messageValue.textContent = result.message || 'No description available';
+                            messageRow.appendChild(messageValue);
+
+                            table.appendChild(messageRow);
+                            details.appendChild(table);
+
+                            // Create actions area with better positioning of buttons
+                            const actions = document.createElement('div');
+                            actions.className = 'vulnerability-actions';
+
+                            const focusButton = document.createElement('button');
+                            focusButton.className = 'action-button focus-button';
+                            focusButton.dataset.index = li.dataset.index;
+                            focusButton.innerHTML = `
+                                <span class="codicon codicon-selection"></span> Focus
+                            `;
+
+                            // Create a more visible ignore rule button
+                            const ignoreButton = document.createElement('button');
+                            ignoreButton.className = 'action-button ignore-button';
+                            ignoreButton.dataset.ruleId = result.ruleId;
+                            ignoreButton.title = `Ignore ${result.ruleId} rule in future analyses`;
+                            ignoreButton.innerHTML = `
+                                <span class="codicon codicon-mute"></span> Ignore Rule
+                            `;
+
+                            // Add event handlers to buttons
+                            focusButton.addEventListener('click', function (e) {
+                                e.stopPropagation();
+                                const index = parseInt(this.dataset.index, 10);
+                                if (index >= 0 && index < filteredResults.length) {
+                                    vscode.postMessage({
+                                        command: 'focusOnLinterIssue',
+                                        linterIssue: filteredResults[index]
+                                    });
+                                }
+                            });
+
+                            ignoreButton.addEventListener('click', function (e) {
+                                e.stopPropagation();
+                                const ruleId = this.dataset.ruleId;
+                                if (ruleId) {
+                                    vscode.postMessage({
+                                        command: 'ignoreLinterRule',
+                                        ruleId: ruleId
+                                    });
+                                }
+                            });
+
+                            actions.appendChild(focusButton);
+                            actions.appendChild(ignoreButton);
+                            details.appendChild(actions);
+
+                            li.appendChild(details);
+
+                            // Apply expansion state if needed
+                            if (state.expandedItems.has(`lint-${li.dataset.index}`)) {
+                                li.classList.add('expanded');
+                                arrow.classList.add('expanded');
+                                details.classList.add('expanded');
                             }
+
+                            linterList.appendChild(li);
                         });
-
-                        ignoreButton.addEventListener('click', function (e) {
-                            e.stopPropagation(); // Don't toggle expansion
-                            const ruleId = this.dataset.ruleId;
-                            if (ruleId) {
-                                vscode.postMessage({
-                                    command: 'ignoreLinterRule',
-                                    ruleId: ruleId
-                                });
-                            }
-                        });
-
-                        // Add both buttons to the actions area
-                        actions.appendChild(focusButton);
-                        actions.appendChild(ignoreButton);
-                        details.appendChild(actions);
-
-                        li.appendChild(details);
-
-                        // Apply expansion state if needed
-                        if (state.expandedItems.has(`lint-${li.dataset.index}`)) {
-                            li.classList.add('expanded');
-                            arrow.classList.add('expanded');
-                            details.classList.add('expanded');
-                        }
-
-                        linterList.appendChild(li);
                     });
                 });
 
-                // Add event listeners for group headers to collapse/expand groups
+                // Add event listeners for file and category group headers
                 document.querySelectorAll('.category-group-header').forEach(header => {
-                    header.addEventListener('click', function () {
-                        const nextSibling = this.nextElementSibling;
-                        let current = nextSibling;
+                    // Remove existing click listeners if any
+                    header.removeEventListener('click', headerClickHandler);
 
-                        // Toggle visibility of all items until the next header
-                        while (current && !current.classList.contains('category-group-header')) {
-                            current.style.display = current.style.display === 'none' ? '' : 'none';
-                            current = current.nextElementSibling;
-                        }
-                    });
+                    // Initialize the collapsed state attribute
+                    if (!header.hasAttribute('data-collapsed')) {
+                        header.dataset.collapsed = "false";
+                    }
+
+                    // Add the click handler
+                    header.addEventListener('click', headerClickHandler);
                 });
+
             }
         } catch (error) {
             console.error('Error rendering linter results:', error);
