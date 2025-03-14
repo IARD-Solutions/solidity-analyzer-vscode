@@ -104,6 +104,18 @@ Please report any issues you encounter, or any feedback you might have, by email
 
 ## Release Notes
 
+### 0.2.1
+
+- **Keyboard Shortcuts Added**: Improve workflow efficiency with keyboard shortcuts
+  - `Ctrl+Alt+A` / `Cmd+Alt+A` (Mac) - Analyze current Solidity file
+  - `Ctrl+Alt+Shift+A` / `Cmd+Alt+Shift+A` (Mac) - Analyze all Solidity files in workspace
+  - `Ctrl+Alt+D` / `Cmd+Alt+D` (Mac) - Dismiss all vulnerability highlights
+  
+- **Welcome Experience for New Users**: Added a friendly onboarding process
+  - First-time users receive a welcome panel with basic instructions
+  - Quick-start guide with keyboard shortcuts and main features
+  - One-click buttons to analyze files and access settings
+
 ### 0.2.0
 
 - **Linting Support**: Added integrated Solidity linter to identify coding standards issues and style violations
