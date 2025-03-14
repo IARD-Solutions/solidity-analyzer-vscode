@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 /**
- * Log levels for the application
+ * Logging levels supported by the application
  */
 export enum LogLevel {
     DEBUG = 0,
@@ -11,94 +11,153 @@ export enum LogLevel {
 }
 
 /**
- * Service for centralized logging throughout the extension.
+ * Service for logging messages to the output channel
  */
 export class LoggingService {
     private outputChannel: vscode.OutputChannel;
-    private currentLogLevel: LogLevel;
+    private disposables: vscode.Disposable[] = [];
 
-    constructor(channelName: string = 'Solidity Analyzer') {
-        this.outputChannel = vscode.window.createOutputChannel(channelName);
+    /**
+     * Creates a new instance of the LoggingService
+     */
+    constructor() {
+        this.outputChannel = vscode.window.createOutputChannel('Solidity Analyzer');
 
-        // Get log level from settings
+        // Listen for configuration changes to update log level
+        this.disposables.push(
+            vscode.workspace.onDidChangeConfiguration(event => {
+                if (event.affectsConfiguration('solidityAnalyzer.logLevel')) {
+                    // Log message about the log level change
+                    const newLevel = this.getConfiguredLogLevel();
+                    this.outputChannel.appendLine(`[INFO] Log level changed to ${newLevel}`);
+                }
+            })
+        );
+    }
+
+    /**
+     * Gets the current configured log level from settings
+     */
+    private getConfiguredLogLevel(): LogLevel {
         const config = vscode.workspace.getConfiguration('solidityAnalyzer');
-        const configLogLevel = config.get<string>('logLevel', 'info').toLowerCase();
+        const logLevelStr = config.get<string>('logLevel', 'info').toLowerCase();
 
-        this.currentLogLevel = this.getLogLevelFromString(configLogLevel);
-    }
-
-    /**
-     * Log a debug message
-     */
-    public debug(message: string, ...args: any[]): void {
-        this.log(LogLevel.DEBUG, message, ...args);
-    }
-
-    /**
-     * Log an info message
-     */
-    public info(message: string, ...args: any[]): void {
-        this.log(LogLevel.INFO, message, ...args);
-    }
-
-    /**
-     * Log a warning message
-     */
-    public warn(message: string, ...args: any[]): void {
-        this.log(LogLevel.WARN, message, ...args);
-    }
-
-    /**
-     * Log an error message
-     */
-    public error(message: string | Error, ...args: any[]): void {
-        const errorMessage = message instanceof Error ? `${message.message}\n${message.stack}` : message;
-        this.log(LogLevel.ERROR, errorMessage, ...args);
-    }
-
-    /**
-     * Show the output channel
-     */
-    public show(): void {
-        this.outputChannel.show();
-    }
-
-    /**
-     * Convert a string log level to enum value
-     */
-    private getLogLevelFromString(level: string): LogLevel {
-        switch (level) {
+        switch (logLevelStr) {
             case 'debug': return LogLevel.DEBUG;
             case 'info': return LogLevel.INFO;
-            case 'warn': case 'warning': return LogLevel.WARN;
+            case 'warn': return LogLevel.WARN;
             case 'error': return LogLevel.ERROR;
             default: return LogLevel.INFO;
         }
     }
 
     /**
-     * Log a message if the current log level allows it
+     * Checks if a log level should be logged based on current settings
      */
-    private log(level: LogLevel, message: string, ...args: any[]): void {
-        if (level >= this.currentLogLevel) {
-            const timestamp = new Date().toISOString();
-            const levelPrefix = LogLevel[level].padEnd(5);
-            let logMessage = `[${timestamp}] [${levelPrefix}] ${message}`;
+    private shouldLog(level: LogLevel): boolean {
+        const configuredLevel = this.getConfiguredLogLevel();
+        return level >= configuredLevel;
+    }
 
-            if (args.length > 0) {
-                logMessage += '\n' + args.map(arg =>
-                    typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
-                ).join('\n');
+    /**
+     * Logs a debug message
+     * 
+     * @param message The message to log
+     * @param data Optional data to include with the log
+     */
+    public debug(message: string, data?: any): void {
+        if (!this.shouldLog(LogLevel.DEBUG)) return;
+
+        const logMessage = data !== undefined
+            ? `[DEBUG] ${message}: ${this.formatData(data)}`
+            : `[DEBUG] ${message}`;
+
+        this.outputChannel.appendLine(logMessage);
+    }
+
+    /**
+     * Logs an info message
+     * 
+     * @param message The message to log
+     * @param data Optional data to include with the log
+     */
+    public info(message: string, data?: any): void {
+        if (!this.shouldLog(LogLevel.INFO)) return;
+
+        const logMessage = data !== undefined
+            ? `[INFO] ${message}: ${this.formatData(data)}`
+            : `[INFO] ${message}`;
+
+        this.outputChannel.appendLine(logMessage);
+    }
+
+    /**
+     * Logs a warning message
+     * 
+     * @param message The message to log
+     * @param data Optional data to include with the log
+     */
+    public warn(message: string, data?: any): void {
+        if (!this.shouldLog(LogLevel.WARN)) return;
+
+        const logMessage = data !== undefined
+            ? `[WARN] ${message}: ${this.formatData(data)}`
+            : `[WARN] ${message}`;
+
+        this.outputChannel.appendLine(logMessage);
+    }
+
+    /**
+     * Logs an error message
+     * 
+     * @param message The message to log
+     * @param error Optional error to include with the log
+     */
+    public error(message: string, error?: any): void {
+        if (!this.shouldLog(LogLevel.ERROR)) return;
+
+        let logMessage = `[ERROR] ${message}`;
+
+        if (error) {
+            if (error instanceof Error) {
+                logMessage += `: ${error.message}\n${error.stack || ''}`;
+            } else {
+                logMessage += `: ${this.formatData(error)}`;
             }
+        }
 
-            this.outputChannel.appendLine(logMessage);
+        this.outputChannel.appendLine(logMessage);
+    }
+
+    /**
+     * Shows the output channel
+     */
+    public show(): void {
+        this.outputChannel.show();
+    }
+
+    /**
+     * Formats data for logging
+     * 
+     * @param data The data to format
+     * @returns Formatted string representation of the data
+     */
+    private formatData(data: any): string {
+        try {
+            if (typeof data === 'object') {
+                return JSON.stringify(data, null, 2);
+            }
+            return String(data);
+        } catch (err) {
+            return `[Unformattable data: ${typeof data}]`;
         }
     }
 
     /**
-     * Dispose of the output channel
+     * Cleans up resources used by the logging service
      */
     public dispose(): void {
         this.outputChannel.dispose();
+        this.disposables.forEach(d => d.dispose());
     }
 }
