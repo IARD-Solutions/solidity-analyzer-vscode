@@ -135,15 +135,6 @@
           ],
           "description": "Show vulnerabilities with these severity levels"
         },
-        "solidityAnalyzer.filterSeverity": {
-          "type": "array",
-          "default": [],
-          "description": "Filter vulnerabilities by severity level",
-          "items": {
-            "type": "string",
-            "enum": ["Critical", "High", "Medium", "Low", "Informational", "Optimization"]
-          }
-        },
         "solidityAnalyzer.filterLintCategories": {
           "type": "array",
           "default": [],
@@ -187,14 +178,6 @@
               "gas-optimizations-advanced",
               "documentation-rules"
             ]
-          }
-        },
-        "solidityAnalyzer.lintIgnoreRules": {
-          "type": "array",
-          "default": [],
-          "description": "List of linting rule IDs to ignore",
-          "items": {
-            "type": "string"
           }
         },
         "solidityAnalyzer.hideStatusBar": {
