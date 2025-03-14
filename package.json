@@ -141,7 +141,13 @@
           "description": "Filter linter issues by category",
           "items": {
             "type": "string",
-            "enum": ["Security", "Gas Consumption", "Best Practice", "Style Guide", "Miscellaneous"]
+            "enum": [
+              "Security",
+              "Gas Consumption",
+              "Best Practice",
+              "Style Guide",
+              "Miscellaneous"
+            ]
           }
         },
         "solidityAnalyzer.filterLintSeverity": {
@@ -150,7 +156,11 @@
           "description": "Filter linter issues by severity level",
           "items": {
             "type": "string",
-            "enum": ["Error", "Warning", "Info"]
+            "enum": [
+              "Error",
+              "Warning",
+              "Info"
+            ]
           }
         },
         "solidityAnalyzer.enableLinting": {
