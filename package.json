@@ -42,6 +42,24 @@
         "category": "Solidity Analyzer"
       }
     ],
+    "keybindings": [
+      {
+        "command": "extension.analyzeCurrentSolidityFile",
+        "key": "ctrl+alt+a",
+        "mac": "cmd+alt+a",
+        "when": "editorLangId == solidity"
+      },
+      {
+        "command": "extension.analyzeAllSolidityFiles",
+        "key": "ctrl+alt+shift+a",
+        "mac": "cmd+alt+shift+a"
+      },
+      {
+        "command": "extension.dismissHighlights",
+        "key": "ctrl+alt+d",
+        "mac": "cmd+alt+d"
+      }
+    ],
     "menus": {
       "commandPalette": [
         {
