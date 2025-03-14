@@ -1,3 +1,18 @@
+/**
+ * Vulnerabilities Panel Webview Script
+ * 
+ * This script manages the UI for displaying Solidity code analysis results in the VS Code webview panel.
+ * It handles rendering of both security vulnerabilities and linter issues, along with filtering, 
+ * categorization, and interactive elements for navigating analysis results.
+ * 
+ * Features:
+ * - Display of vulnerabilities grouped by impact level
+ * - Display of linter results grouped by category
+ * - Filtering by confidence level and impact
+ * - Expandable/collapsible item details
+ * - Focus functionality to navigate to issues in code
+ * - Persistent state for UI preferences
+ */
 (function() {
     // Get VS Code API
     const vscode = acquireVsCodeApi();
@@ -26,7 +41,9 @@
                                       ['Security', 'Gas Consumption', 'Best Practice', 'Style Guide', 'Miscellaneous']);
     }
     
-    // Save state
+    /**
+     * Saves current UI state to VS Code's state storage
+     */
     function saveState() {
         vscode.setState({
             filters: state.filters,
@@ -37,6 +54,11 @@
     }
     
     // Helper functions
+    /**
+     * Toggles the expansion state of a vulnerability or linter item
+     *
+     * @param {HTMLElement} element - The element that was clicked
+     */
     function toggleItemExpansion(element) {
         const listItem = element.closest('li');
         if (!listItem) return;
@@ -73,6 +95,12 @@
     // Make toggleItemExpansion available to the global scope for inline onclick handlers
     window.toggleItemExpansion = toggleItemExpansion;
     
+    /**
+     * Determines the CSS class for a category
+     * 
+     * @param {string} category - The category name
+     * @returns {string} - The corresponding CSS class
+     */
     function getCategoryClass(category) {
         if (!category) return "misc";
         
@@ -85,6 +113,12 @@
         }
     }
     
+    /**
+     * Maps numeric severity levels to text representations
+     * 
+     * @param {number} severity - The numeric severity level
+     * @returns {string} - Text representation of the severity
+     */
     function getSeverityText(severity) {
         switch(severity) {
             case 0: return "Info";
@@ -94,6 +128,11 @@
         }
     }
     
+    /**
+     * Switches between tabs in the UI
+     * 
+     * @param {string} tabName - The name of the tab to activate
+     */
     function toggleTab(tabName) {
         // Remove active class from all tabs and content
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -111,6 +150,12 @@
         }
     }
     
+    /**
+     * Creates a severity badge UI element
+     * 
+     * @param {string} impact - The impact level (Critical, High, etc.)
+     * @returns {HTMLElement} - The badge element
+     */
     function createSeverityBadge(impact) {
         const badge = document.createElement('span');
         badge.classList.add('severity-badge', impact.toLowerCase());
@@ -118,7 +163,13 @@
         return badge;
     }
     
-    // New function to group items by category/impact
+    /**
+     * Groups items by a specified property
+     * 
+     * @param {Array} items - The array of items to group
+     * @param {string} propertyName - The property to group by
+     * @returns {Object} - Object with grouped items
+     */
     function groupItemsByProperty(items, propertyName) {
         const groups = {};
         
@@ -133,7 +184,11 @@
         return groups;
     }
     
-    // Vulnerability rendering
+    /**
+     * Filters vulnerabilities based on current UI filters
+     * 
+     * @returns {Array} - Filtered vulnerability items
+     */
     function filterVulnerabilities() {
         return state.vulnerabilities.filter(vuln => {
             const impactActive = state.activeImpacts.has(vuln.impact);
@@ -142,6 +197,10 @@
         });
     }
     
+    /**
+     * Renders the vulnerability list in the UI
+     * Groups vulnerabilities by impact level and applies current filters
+     */
     function renderVulnerabilityList() {
         const vulnerabilityList = document.getElementById('vulnerability-list');
         const loadingElement = document.getElementById('loading');
@@ -317,7 +376,10 @@
         }, 50);
     }
     
-    // Linter rendering
+    /**
+     * Renders the linter results in the UI
+     * Groups linter issues by category and applies current filters
+     */
     function renderLinterResults() {
         const linterList = document.getElementById('linter-list');
         const linterLoading = document.getElementById('linter-loading');
@@ -638,7 +700,10 @@
         }
     });
     
-    // Helper function to update category headers after items are removed
+    /**
+     * Updates category headers after items are added or removed
+     * Recalculates counts and removes empty categories
+     */
     function updateCategoryHeaders() {
         // Get all category headers
         const headers = document.querySelectorAll('.category-group-header');
@@ -678,7 +743,10 @@
         });
     }
     
-    // Helper function to update the linter count in the tab after removing items
+    /**
+     * Updates the linter issue count in the tab badge
+     * Shows "no results" message if all issues are filtered out
+     */
     function updateLinterCount() {
         // Update the linter tab badge
         const visibleItems = document.querySelectorAll('#linter-list .linter-item');
@@ -697,7 +765,10 @@
         }
     }
     
-    // Initialize the UI
+    /**
+     * Initializes the UI components and sets up event listeners
+     * Applies saved state and renders the appropriate tab content
+     */
     function initializeUI() {
         // Get UI elements
         const dismissButton = document.getElementById('dismiss-button');
