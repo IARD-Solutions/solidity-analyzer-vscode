@@ -104,6 +104,25 @@ Please report any issues you encounter, or any feedback you might have, by email
 
 ## Release Notes
 
+### 0.2.2
+
+- **Improved Multi-File Analysis**: Now analyzes files in dependency groups for more accurate results
+  - Files are grouped based on their import relationships
+  - Each group is analyzed separately to improve context
+  - Enables more precise detection of cross-contract vulnerabilities
+
+- **Enhanced Result Processing**: Better handling of analysis results across multiple files
+  - Fixed linter output parsing for multi-file projects
+  - Improved file path resolution in vulnerability reports
+
+- **UI Improvements**: Fixed issues with collapsible sections in results view
+  - Properly maintains expansion state of nested sections
+  - Fixed inconsistent behavior when expanding/collapsing file sections
+
+- **Logging Enhancements**: Fixed debug level settings and added detailed logs
+  - Debug logs now properly respect the configured log level
+  - Added more diagnostic information for troubleshooting
+
 ### 0.2.1
 
 - **Keyboard Shortcuts Added**: Improve workflow efficiency with keyboard shortcuts
