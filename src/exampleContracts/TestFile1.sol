@@ -8,7 +8,10 @@ contract Lock {
     event Withdrawal(uint256 amount, uint256 when);
 
     constructor(uint256 _unlockTime) {
-        require(_unlockTime > block.timestamp, "Unlock time should be in the future");
+        require(
+            _unlockTime > block.timestamp,
+            "Unlock time should be in the future"
+        );
         unlockTime = _unlockTime;
         owner = payable(msg.sender);
     }
@@ -52,5 +55,4 @@ contract Lock {
         require(msg.sender == owner, "You aren't the owner");
         _to.call{value: 1 ether, gas: 10000}("");
     }
-
 }

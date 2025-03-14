@@ -40,21 +40,21 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarService = new StatusBarService(logger);
 
     logger.info('Solidity Analyzer extension activated');
-    
+
     // Register analysis commands
     const analyzeAllCommand = vscode.commands.registerCommand(
-        'extension.analyzeAllSolidityFiles', 
+        'extension.analyzeAllSolidityFiles',
         async () => {
             try {
                 statusBarService.showScanning();
                 logger.info('Starting analysis of all Solidity files');
-                
+
                 const result = await analyzer.analyzeAllSolidityFiles();
                 lastAnalyzedVulnerabilities = result.vulnerabilities;
                 lastAnalyzedLinterResults = result.linterResults || [];
-                
+
                 logger.info(`Analysis complete. Found ${result.vulnerabilities.length} vulnerabilities and ${lastAnalyzedLinterResults.length} linter issues`);
-                
+
                 // Update UI components with analysis results
                 updateAnalysisResults(result.vulnerabilities, lastAnalyzedLinterResults, context);
             } catch (error) {
@@ -66,23 +66,23 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     const analyzeCurrentFileCommand = vscode.commands.registerCommand(
-        'extension.analyzeCurrentSolidityFile', 
+        'extension.analyzeCurrentSolidityFile',
         async () => {
             try {
                 statusBarService.showScanning();
                 logger.info('Starting analysis of current or last active Solidity file');
-                
+
                 // Check if we have an active editor with a Solidity file
                 const activeEditor = vscode.window.activeTextEditor;
                 let activeDocument: vscode.TextDocument | undefined = activeEditor?.document;
-                
+
                 // If no active document or not a Solidity file, try to find a Solidity document
                 if (!activeDocument || activeDocument.languageId !== 'solidity') {
                     logger.info('No active Solidity editor, looking for Solidity documents');
-                    
+
                     // Check all open documents for Solidity files
                     const allDocs = vscode.workspace.textDocuments.filter(doc => doc.languageId === 'solidity');
-                    
+
                     if (allDocs.length > 0) {
                         activeDocument = allDocs[0];
                         logger.info(`Found Solidity document: ${activeDocument.fileName}`);
@@ -93,20 +93,20 @@ export function activate(context: vscode.ExtensionContext) {
                         return;
                     }
                 }
-                
+
                 // Store the current file path for analysis
                 const fileToAnalyze = activeDocument.uri;
                 logger.info(`Preparing to analyze file: ${fileToAnalyze.fsPath}`);
-                
+
                 // Analyze the document directly instead of relying on the active editor
                 // Modify analyzer.analyzeCurrentSolidityFile to accept a document parameter
                 const result = await analyzer.analyzeSolidityDocument(activeDocument);
-                
+
                 lastAnalyzedVulnerabilities = result.vulnerabilities;
                 lastAnalyzedLinterResults = result.linterResults || [];
-                
+
                 logger.info(`Analysis complete. Found ${result.vulnerabilities.length} vulnerabilities and ${lastAnalyzedLinterResults.length} linter issues`);
-                
+
                 // Update UI components with analysis results
                 updateAnalysisResults(result.vulnerabilities, lastAnalyzedLinterResults, context);
             } catch (error) {
@@ -118,27 +118,27 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     const dismissHighlightsCommand = vscode.commands.registerCommand(
-        'solidity-analyzer.dismissHighlights', 
+        'solidity-analyzer.dismissHighlights',
         () => {
             decorationManager.dismissHighlights();
         }
     );
-    
+
     // Fix the command to properly handle the parameter
     const dismissSingleHighlightCommand = vscode.commands.registerCommand(
         'solidity-analyzer.dismissSingleHighlight',
         (decorationId) => {
             console.log("Raw decoration ID received:", decorationId);
-            
+
             // Handle the parameter regardless of how it's passed
             let id = decorationId;
-            
+
             if (Array.isArray(decorationId)) {
                 id = decorationId[0];
             } else if (typeof decorationId === 'string') {
                 // Try to remove any quotes that might wrap the ID
                 id = decorationId.replace(/^["'](.*)["']$/, '$1');
-                
+
                 // Try to decode if it's URL encoded
                 try {
                     if (id.includes('%')) {
@@ -148,7 +148,7 @@ export function activate(context: vscode.ExtensionContext) {
                     // If decoding fails, use the original
                     console.error("Error decoding ID:", e);
                 }
-                
+
                 // Try to parse as JSON if it looks like a JSON string
                 try {
                     if (id.startsWith('[') || id.startsWith('{')) {
@@ -164,7 +164,7 @@ export function activate(context: vscode.ExtensionContext) {
                     console.log("Not valid JSON, using as is");
                 }
             }
-            
+
             console.log(`Final ID to dismiss: ${id}`);
             decorationManager.dismissSingleHighlight(id);
         }
@@ -193,19 +193,19 @@ export function activate(context: vscode.ExtensionContext) {
                         })),
                         { placeHolder: 'Select a linter rule to ignore' }
                     );
-                    
+
                     if (!selectedRule) return;
                     ruleId = selectedRule.label;
                 }
-                
+
                 // Add the rule to the ignored rules list in settings
                 const config = vscode.workspace.getConfiguration('solidityAnalyzer');
                 const currentIgnoredRules = config.get<string[]>('lintIgnoreRules', []);
-                
+
                 if (!currentIgnoredRules.includes(ruleId)) {
                     currentIgnoredRules.push(ruleId);
                     await config.update('lintIgnoreRules', currentIgnoredRules, vscode.ConfigurationTarget.Workspace);
-                    
+
                     // Show a notification with an Undo button
                     const undoAction = 'Undo';
                     vscode.window.showInformationMessage(
@@ -217,7 +217,7 @@ export function activate(context: vscode.ExtensionContext) {
                             const updatedRules = currentIgnoredRules.filter(rule => rule !== ruleId);
                             await config.update('lintIgnoreRules', updatedRules, vscode.ConfigurationTarget.Workspace);
                             vscode.window.showInformationMessage(`Removed "${ruleId}" from ignored linter rules`);
-                            
+
                             // If the webview panel exists, tell it to restore the rule
                             if (WebviewProvider.currentPanel) {
                                 WebviewProvider.currentPanel.webview.postMessage({
@@ -227,7 +227,7 @@ export function activate(context: vscode.ExtensionContext) {
                             }
                         }
                     });
-                    
+
                     // Instead of re-analyzing, send a message to the webview to update the UI
                     if (WebviewProvider.currentPanel) {
                         WebviewProvider.currentPanel.webview.postMessage({
@@ -244,7 +244,7 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }
     );
-    
+
     // Register the new command
     context.subscriptions.push(ignoreLinterRuleCommand);
 
@@ -252,7 +252,7 @@ export function activate(context: vscode.ExtensionContext) {
     const fileWatcher = vscode.workspace.onDidSaveTextDocument(async (document) => {
         const config = vscode.workspace.getConfiguration('solidityAnalyzer');
         const autoAnalyzeOnSave = config.get<boolean>('autoAnalyzeOnSave', false);
-        
+
         if (autoAnalyzeOnSave && document.languageId === 'solidity') {
             logger.info(`Auto-analyzing saved file: ${document.fileName}`);
             await vscode.commands.executeCommand('extension.analyzeCurrentSolidityFile');
@@ -286,55 +286,55 @@ function updateAnalysisResults(
     // Filter vulnerabilities by severity if configured
     const config = vscode.workspace.getConfiguration('solidityAnalyzer');
     const severityFilter = config.get<string[]>('filterSeverity', []);
-    
-    const filteredVulns = vulnerabilities.filter(vuln => 
+
+    const filteredVulns = vulnerabilities.filter(vuln =>
         !severityFilter.length || severityFilter.includes(vuln.impact)
     );
-    
+
     // Filter linter results by category, severity, and ignored rules
     const enableLinting = config.get<boolean>('enableLinting', true);
     let filteredLinterResults = linterResults;
-    
+
     if (enableLinting) {
         const categoryFilter = config.get<string[]>('filterLintCategories', []);
         const severityFilter = config.get<string[]>('filterLintSeverity', []);
         const ignoreRules = config.get<string[]>('lintIgnoreRules', []);
         const ignorePresets = config.get<string[]>('lintIgnorePresets', []);
-        
+
         // Build a complete list of rules to ignore, including from presets
         const allIgnoredRules = [...ignoreRules];
-        
+
         // Add rules from selected presets using the imported RULE_PRESETS
         ignorePresets.forEach(presetName => {
             if (RULE_PRESETS[presetName]) {
                 allIgnoredRules.push(...RULE_PRESETS[presetName]);
             }
         });
-        
+
         filteredLinterResults = linterResults.filter(result => {
             // Filter by category
             if (categoryFilter.length && result.category && !categoryFilter.includes(result.category)) {
                 return false;
             }
-            
+
             // Filter by severity
-            const severityText = result.severity === 2 ? 'Error' : 
-                                 result.severity === 1 ? 'Warning' : 'Info';
+            const severityText = result.severity === 2 ? 'Error' :
+                result.severity === 1 ? 'Warning' : 'Info';
             if (severityFilter.length && !severityFilter.includes(severityText)) {
                 return false;
             }
-            
+
             // Filter by ignored rules
             if (allIgnoredRules.includes(result.ruleId)) {
                 return false;
             }
-            
+
             return true;
         });
     } else {
         filteredLinterResults = []; // Disable linting completely
     }
-    
+
     // Create webview if there are issues to show
     if (filteredVulns.length > 0 || filteredLinterResults.length > 0) {
         webviewProvider.createWebviewPanel(
@@ -345,11 +345,11 @@ function updateAnalysisResults(
             (linterIssue) => decorationManager.focusOnLinterIssue(linterIssue),
             () => decorationManager.dismissHighlights()
         );
-        
+
         // Update decorations
         decorationManager.highlightVulnerabilities(filteredVulns);
         decorationManager.highlightLinterIssues(filteredLinterResults);
-        
+
         // Update status bar
         statusBarService.updateVulnerabilityCount(vulnerabilities, filteredLinterResults);
     } else if (vulnerabilities.length > 0) {
@@ -360,7 +360,7 @@ function updateAnalysisResults(
         vscode.window.showInformationMessage(
             `No vulnerabilities found, but ${filteredLinterResults.length} linter issues were detected.`
         );
-        
+
         // Still create the webview for linter issues
         webviewProvider.createWebviewPanel(
             [],
@@ -370,13 +370,13 @@ function updateAnalysisResults(
             (linterIssue) => decorationManager.focusOnLinterIssue(linterIssue),
             () => decorationManager.dismissHighlights()
         );
-        
+
         // Update linter decorations
         decorationManager.highlightLinterIssues(filteredLinterResults);
     } else {
         vscode.window.showInformationMessage('No issues found. Great job!');
     }
-    
+
     // Update status bar
     statusBarService.updateVulnerabilityCount(vulnerabilities, filteredLinterResults);
 }
@@ -385,7 +385,7 @@ function updateAnalysisResults(
  * Get a list of all Solhint rules with their categories and descriptions.
  * This could be enhanced in the future to pull from official documentation.
  */
-function getSolhintRulesList(): Array<{id: string, category: string, description?: string}> {
+function getSolhintRulesList(): Array<{ id: string, category: string, description?: string }> {
     // This is a simplified version but could be enhanced with more detailed descriptions
     return Object.entries(require('./utils/vulnerabilityProcessor').solhintCategories)
         .map(([id, category]) => ({

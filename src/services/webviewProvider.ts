@@ -41,9 +41,9 @@ export class WebviewProvider {
         onDismissHighlights: () => void
     ): vscode.WebviewPanel {
         this.logger.debug(`Creating or reusing webview panel to display ${vulnerabilities.length} vulnerabilities and ${linterResults.length} linter issues`);
-        
+
         const totalIssues = vulnerabilities.length + linterResults.length;
-        
+
         // Check if we already have a panel and it's not disposed
         if (WebviewProvider.currentPanel) {
             try {
@@ -51,7 +51,7 @@ export class WebviewProvider {
                 this.logger.info('Reusing existing webview panel');
                 WebviewProvider.currentPanel.webview.html = this.getWebviewContent(vulnerabilities, linterResults, WebviewProvider.currentPanel.webview, context);
                 WebviewProvider.currentPanel.reveal();
-                
+
                 return WebviewProvider.currentPanel;
             } catch (e) {
                 // Panel was probably disposed, reset the reference
@@ -59,7 +59,7 @@ export class WebviewProvider {
                 WebviewProvider.currentPanel = undefined;
             }
         }
-        
+
         // Create a new panel if we don't have one or the previous one was disposed
         const panel = vscode.window.createWebviewPanel(
             'solidityAnalyzer',
@@ -74,7 +74,7 @@ export class WebviewProvider {
 
         // Store the panel reference
         WebviewProvider.currentPanel = panel;
-        
+
         // Handle panel disposal
         panel.onDidDispose(() => {
             WebviewProvider.currentPanel = undefined;
@@ -94,9 +94,9 @@ export class WebviewProvider {
                         return;
                     case 'focusOnVulnerability':
                         const vulnInfo = message.vulnerability;
-                        const vulnId = vulnInfo.id || 
-                            (vulnInfo.title ? `"${vulnInfo.title}"` : 
-                             (vulnInfo.description ? `desc: "${vulnInfo.description.substring(0, 30)}..."` : 'unknown'));
+                        const vulnId = vulnInfo.id ||
+                            (vulnInfo.title ? `"${vulnInfo.title}"` :
+                                (vulnInfo.description ? `desc: "${vulnInfo.description.substring(0, 30)}..."` : 'unknown'));
                         this.logger.info(`User requested to focus on vulnerability: ${vulnId}`);
                         onFocusVulnerability(message.vulnerability);
                         return;
@@ -156,11 +156,11 @@ export class WebviewProvider {
         const cssUri = this.getResourceUri(webview, context, 'media', 'vulnerabilities.css');
         const scriptUri = this.getResourceUri(webview, context, 'media', 'vulnerabilities.js');
         const codiconsUri = this.getResourceUri(
-            webview, 
-            context, 
-            'node_modules', 
-            '@vscode/codicons', 
-            'dist', 
+            webview,
+            context,
+            'node_modules',
+            '@vscode/codicons',
+            'dist',
             'codicon.css'
         );
 
@@ -338,7 +338,7 @@ export class WebviewProvider {
             </body>
             </html>`;
     }
-    
+
     /**
      * Helper function to create URIs for webview resources
      */

@@ -13,7 +13,7 @@ export class DecorationManager {
     private readonly linterDecorations = new Map<string, vscode.TextEditorDecorationType>();
     // Store hover messages separately
     private readonly hoverMessages = new Map<string, vscode.MarkdownString>();
-    
+
     /**
      * Creates a new DecorationManager instance.
      * 
@@ -31,17 +31,17 @@ export class DecorationManager {
      */
     public highlightVulnerabilities(vulnerabilities: Vulnerability[]): void {
         this.logger.info(`Highlighting ${vulnerabilities.length} vulnerabilities in editor`);
-        
+
         for (const vulnerability of vulnerabilities) {
             if (!vulnerability.lines || vulnerability.lines.length === 0) {
                 continue;
             }
-            
+
             this.createVulnerabilityDecoration(vulnerability);
             this.applyDecorationToEditors(vulnerability);
         }
     }
-    
+
     /**
      * Highlights linter issues in the editor.
      * 
@@ -49,12 +49,12 @@ export class DecorationManager {
      */
     public highlightLinterIssues(linterResults: LinterResult[]): void {
         this.logger.info(`Highlighting ${linterResults.length} linter issues in editor`);
-        
+
         for (const linterResult of linterResults) {
             if (!linterResult.filePath || !linterResult.line) {
                 continue;
             }
-            
+
             this.createLinterDecoration(linterResult);
             this.applyLinterDecorationToEditors(linterResult);
         }
@@ -73,11 +73,11 @@ export class DecorationManager {
 
         const firstLocation = vulnerability.lines[0];
         this.logger.info(`Focusing on vulnerability in file: ${firstLocation.contract} at line ${firstLocation.lines[0]}`);
-        
+
         // Focus on the file and navigate to the line
         this.openAndFocusFile(firstLocation.contract, firstLocation.lines[0]);
     }
-    
+
     /**
      * Focuses the editor on a specific linter issue.
      * 
@@ -90,7 +90,7 @@ export class DecorationManager {
         }
 
         this.logger.info(`Focusing on linter issue in file: ${linterIssue.filePath} at line ${linterIssue.line}`);
-        
+
         // Focus on the file and navigate to the line
         this.openAndFocusFile(linterIssue.filePath, linterIssue.line);
     }
@@ -105,16 +105,16 @@ export class DecorationManager {
         try {
             this.logger.debug(`Attempting to focus on file: ${filePath} at line: ${line}`);
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-            
+
             if (!workspaceFolder) {
                 this.logger.error('No workspace folder found');
                 vscode.window.showErrorMessage('No workspace folder found');
                 return;
             }
-            
+
             // Normalize file path and try various resolution strategies
             let resolvedPath: string | undefined;
-            
+
             // 1. Try as absolute path
             if (fs.existsSync(filePath)) {
                 resolvedPath = filePath;
@@ -129,24 +129,24 @@ export class DecorationManager {
             else {
                 const fileName = path.basename(filePath);
                 this.logger.debug(`Searching for filename in workspace: ${fileName}`);
-                
+
                 const files = await vscode.workspace.findFiles(`**/${fileName}`, '**/node_modules/**');
                 if (files.length > 0) {
                     resolvedPath = files[0].fsPath;
                     this.logger.debug(`File found by searching workspace: ${resolvedPath}`);
                 }
             }
-            
+
             if (!resolvedPath) {
                 this.logger.error(`Could not resolve file path: ${filePath}`);
                 vscode.window.showErrorMessage(`Could not find file: ${filePath}`);
                 return;
             }
-            
+
             // Check if the file is already open in an editor
             const uri = vscode.Uri.file(resolvedPath);
             let editor: vscode.TextEditor | undefined;
-            
+
             // First check if the file is open in any visible editors
             for (const visibleEditor of vscode.window.visibleTextEditors) {
                 if (visibleEditor.document.uri.fsPath === uri.fsPath) {
@@ -155,7 +155,7 @@ export class DecorationManager {
                     break;
                 }
             }
-            
+
             // If not found in visible editors, open it
             if (!editor) {
                 this.logger.debug(`Opening file: ${uri.fsPath}`);
@@ -165,28 +165,28 @@ export class DecorationManager {
                 // Make the existing editor active
                 await vscode.window.showTextDocument(editor.document, { viewColumn: editor.viewColumn });
             }
-            
+
             // Convert from 1-based to 0-based line number if needed
             const targetLine = Math.max(0, line - 1);
-            
+
             if (targetLine >= editor.document.lineCount) {
                 this.logger.warn(`Line ${line} exceeds document length (${editor.document.lineCount} lines)`);
                 return;
             }
-            
+
             // Position at the beginning of the line
             const position = new vscode.Position(targetLine, 0);
-            
+
             // Move cursor to position and reveal in editor
             editor.selection = new vscode.Selection(position, position);
             editor.revealRange(
                 new vscode.Range(position, position),
                 vscode.TextEditorRevealType.InCenter
             );
-            
+
             // Add temporary highlighting effect for the target line
             this.highlightLineTemporarily(editor, targetLine);
-            
+
             this.logger.debug(`Successfully focused on line ${targetLine} in ${uri.fsPath}`);
         } catch (error) {
             this.logger.error(`Failed to focus on file: ${error}`);
@@ -206,11 +206,11 @@ export class DecorationManager {
             backgroundColor: 'rgba(255, 255, 0, 0.3)', // Yellow highlight
             isWholeLine: true,
         });
-        
+
         // Apply the decoration
         const range = editor.document.lineAt(line).range;
         editor.setDecorations(flashDecoration, [{ range }]);
-        
+
         // Remove the decoration after a short delay
         setTimeout(() => {
             flashDecoration.dispose();
@@ -225,7 +225,7 @@ export class DecorationManager {
      */
     private createVulnerabilityDecoration(vulnerability: Vulnerability): vscode.TextEditorDecorationType {
         const id = vulnerability.id || `vuln-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-        
+
         // Return existing decoration if already created
         if (this.vulnerabilityDecorations.has(id)) {
             return this.vulnerabilityDecorations.get(id)!;
@@ -238,7 +238,7 @@ export class DecorationManager {
         hoverMessage.appendMarkdown(`**Impact:** ${vulnerability.impact} | **Confidence:** ${vulnerability.confidence}\n\n`);
         hoverMessage.appendMarkdown(`${vulnerability.description}\n\n`);
         hoverMessage.appendMarkdown(`[Dismiss This](command:solidity-analyzer.dismissSingleHighlight?${encodeURIComponent(JSON.stringify([id]))})`);
-        
+
         // Store hover message for later use
         this.hoverMessages.set(id, hoverMessage);
 
@@ -259,7 +259,7 @@ export class DecorationManager {
         this.vulnerabilityDecorations.set(id, decorationType);
         return decorationType;
     }
-    
+
     /**
      * Creates a decoration for a linter issue.
      * 
@@ -268,7 +268,7 @@ export class DecorationManager {
      */
     private createLinterDecoration(linterIssue: LinterResult): vscode.TextEditorDecorationType {
         const id = `lint-${linterIssue.filePath}-${linterIssue.line}-${linterIssue.ruleId}`;
-        
+
         // Return existing decoration if already created
         if (this.linterDecorations.has(id)) {
             return this.linterDecorations.get(id)!;
@@ -281,7 +281,7 @@ export class DecorationManager {
         hoverMessage.appendMarkdown(`**Category:** ${linterIssue.category} | **Severity:** ${this.getSeverityText(linterIssue.severity)}\n\n`);
         hoverMessage.appendMarkdown(`${linterIssue.message}\n\n`);
         hoverMessage.appendMarkdown(`[Dismiss This](command:solidity-analyzer.dismissSingleHighlight?${encodeURIComponent(JSON.stringify([id]))})`);
-        
+
         // Store hover message for later use
         this.hoverMessages.set(id, hoverMessage);
 
@@ -310,11 +310,11 @@ export class DecorationManager {
      */
     private applyDecorationToEditors(vulnerability: Vulnerability): void {
         if (!vulnerability.lines) return;
-        
+
         const id = vulnerability.id || '';
         const decorationType = this.vulnerabilityDecorations.get(id);
         if (!decorationType) return;
-        
+
         const hoverMessage = this.hoverMessages.get(id);
 
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -323,25 +323,25 @@ export class DecorationManager {
         for (const editor of vscode.window.visibleTextEditors) {
             for (const location of vulnerability.lines) {
                 const relativePath = this.getRelativePath(editor.document.uri.fsPath, workspaceFolder.uri.fsPath);
-                
+
                 // If this editor contains the file with the vulnerability
                 if (relativePath.endsWith(location.contract) || location.contract.endsWith(relativePath)) {
                     const decorationsArray: vscode.DecorationOptions[] = [];
-                    
+
                     // Sort lines to identify consecutive ranges
                     const sortedLines = [...location.lines].sort((a, b) => a - b);
-                    
+
                     // Group consecutive lines
                     let currentRange: { start: number, end: number } | null = null;
-                    
+
                     for (let i = 0; i < sortedLines.length; i++) {
                         const line = sortedLines[i];
                         // Convert from 1-based to 0-based line numbers
                         const lineIndex = Math.max(0, line - 1);
-                        
+
                         // Skip if line is beyond document length
                         if (lineIndex >= editor.document.lineCount) continue;
-                        
+
                         // Start a new range or extend current range
                         if (currentRange === null) {
                             currentRange = { start: lineIndex, end: lineIndex };
@@ -354,31 +354,31 @@ export class DecorationManager {
                                 // Create decoration for the completed range
                                 const rangeStart = editor.document.lineAt(currentRange.start).range.start;
                                 const rangeEnd = editor.document.lineAt(currentRange.end).range.end;
-                                
+
                                 decorationsArray.push({
                                     range: new vscode.Range(rangeStart, rangeEnd),
                                     hoverMessage: hoverMessage
                                 });
                             }
-                            
+
                             // Start a new range
                             currentRange = { start: lineIndex, end: lineIndex };
                         }
                     }
-                    
+
                     // Handle the last range
-                    if (currentRange !== null && 
-                        currentRange.start <= currentRange.end && 
+                    if (currentRange !== null &&
+                        currentRange.start <= currentRange.end &&
                         currentRange.end < editor.document.lineCount) {
                         const rangeStart = editor.document.lineAt(currentRange.start).range.start;
                         const rangeEnd = editor.document.lineAt(currentRange.end).range.end;
-                        
+
                         decorationsArray.push({
                             range: new vscode.Range(rangeStart, rangeEnd),
                             hoverMessage: hoverMessage
                         });
                     }
-                    
+
                     if (decorationsArray.length > 0) {
                         editor.setDecorations(decorationType, decorationsArray);
                     }
@@ -394,11 +394,11 @@ export class DecorationManager {
      */
     private applyLinterDecorationToEditors(linterIssue: LinterResult): void {
         if (!linterIssue.filePath || !linterIssue.line) return;
-        
+
         const id = `lint-${linterIssue.filePath}-${linterIssue.line}-${linterIssue.ruleId}`;
         const decorationType = this.linterDecorations.get(id);
         if (!decorationType) return;
-        
+
         const hoverMessage = this.hoverMessages.get(id);
 
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -406,23 +406,23 @@ export class DecorationManager {
 
         for (const editor of vscode.window.visibleTextEditors) {
             const relativePath = this.getRelativePath(editor.document.uri.fsPath, workspaceFolder.uri.fsPath);
-            
+
             // If this editor contains the file with the linter issue
             if (relativePath.endsWith(linterIssue.filePath) || linterIssue.filePath.endsWith(relativePath)) {
                 const decorationsArray: vscode.DecorationOptions[] = [];
-                
+
                 // Convert from 1-based to 0-based line number if needed
                 const targetLine = Math.max(0, linterIssue.line - 1);
-                
+
                 if (targetLine < editor.document.lineCount) {
                     const lineText = editor.document.lineAt(targetLine);
-                    
+
                     decorationsArray.push({
                         range: lineText.range,
                         hoverMessage: hoverMessage
                     });
                 }
-                
+
                 if (decorationsArray.length > 0) {
                     editor.setDecorations(decorationType, decorationsArray);
                 }
@@ -435,19 +435,19 @@ export class DecorationManager {
      */
     public dismissHighlights(): void {
         this.logger.info('Dismissing all highlights');
-        
+
         // Dispose all vulnerability decorations
         for (const decoration of this.vulnerabilityDecorations.values()) {
             decoration.dispose();
         }
         this.vulnerabilityDecorations.clear();
-        
+
         // Dispose all linter decorations
         for (const decoration of this.linterDecorations.values()) {
             decoration.dispose();
         }
         this.linterDecorations.clear();
-        
+
         // Clear stored hover messages
         this.hoverMessages.clear();
     }
@@ -467,7 +467,7 @@ export class DecorationManager {
             this.hoverMessages.delete(id);
             return;
         }
-        
+
         // Try to dismiss as linter decoration
         const linterDecoration = this.linterDecorations.get(id);
         if (linterDecoration) {
@@ -477,7 +477,7 @@ export class DecorationManager {
             this.hoverMessages.delete(id);
             return;
         }
-        
+
         this.logger.warn(`No decoration found with ID: ${id}`);
     }
 
@@ -555,7 +555,7 @@ export class DecorationManager {
             default: return 'rgba(200, 200, 200, 1)';
         }
     }
-    
+
     /**
      * Gets the background color for a linter issue category.
      * 
@@ -564,7 +564,7 @@ export class DecorationManager {
      */
     private getBackgroundColorForCategory(category?: string): string {
         if (!category) return 'rgba(200, 200, 200, 0.15)';
-        
+
         switch (category) {
             case 'Security': return 'rgba(255, 73, 73, 0.15)';
             case 'Gas Consumption': return 'rgba(255, 157, 0, 0.15)';
@@ -573,7 +573,7 @@ export class DecorationManager {
             default: return 'rgba(200, 200, 200, 0.15)';
         }
     }
-    
+
     /**
      * Gets the border color for a linter issue category.
      * 
@@ -582,7 +582,7 @@ export class DecorationManager {
      */
     private getBorderColorForCategory(category?: string): string {
         if (!category) return 'rgba(200, 200, 200, 0.5)';
-        
+
         switch (category) {
             case 'Security': return 'rgba(255, 73, 73, 0.5)';
             case 'Gas Consumption': return 'rgba(255, 157, 0, 0.5)';
@@ -591,7 +591,7 @@ export class DecorationManager {
             default: return 'rgba(200, 200, 200, 0.5)';
         }
     }
-    
+
     /**
      * Gets the ruler color for a linter issue category.
      * 
@@ -600,7 +600,7 @@ export class DecorationManager {
      */
     private getRulerColorForCategory(category?: string): string {
         if (!category) return 'rgba(200, 200, 200, 1)';
-        
+
         switch (category) {
             case 'Security': return 'rgba(255, 73, 73, 1)';
             case 'Gas Consumption': return 'rgba(255, 157, 0, 1)';
@@ -609,7 +609,7 @@ export class DecorationManager {
             default: return 'rgba(200, 200, 200, 1)';
         }
     }
-    
+
     /**
      * Gets the severity text for a numeric severity level.
      * 
@@ -617,7 +617,7 @@ export class DecorationManager {
      * @returns The severity text
      */
     private getSeverityText(severity: number): string {
-        switch(severity) {
+        switch (severity) {
             case 0: return "Info";
             case 1: return "Warning";
             case 2: return "Error";

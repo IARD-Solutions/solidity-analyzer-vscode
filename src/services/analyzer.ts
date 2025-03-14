@@ -83,12 +83,12 @@ export class SolidityAnalyzer {
         this.logger.info(`Analyzing Solidity document: ${document.fileName}`);
         const codeObject: CodeObject = {};
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-        
+
         if (!workspaceFolder) {
             this.logger.error('No workspace folder opened');
             throw new Error('Please open a workspace folder containing the Solidity files.');
         }
-        
+
         const relativePath = path.relative(workspaceFolder.uri.fsPath, document.uri.fsPath);
         codeObject[relativePath] = { content: document.getText() };
         this.logger.debug(`Added main file to analysis: ${relativePath}`);
@@ -128,8 +128,8 @@ export class SolidityAnalyzer {
      * @param importedFiles Set of already imported files to avoid duplicates
      */
     private async addImportedFiles(
-        filePath: string, 
-        codeObject: CodeObject, 
+        filePath: string,
+        codeObject: CodeObject,
         importedFiles: Set<string> = new Set<string>()
     ): Promise<void> {
         const document = await vscode.workspace.openTextDocument(filePath);
@@ -138,18 +138,18 @@ export class SolidityAnalyzer {
         if (!workspaceFolder) {
             return;
         }
-        
+
         const content = document.getText();
         const importRegex = /import\s+(?:["'](?!@)(.+?\.sol)["']|{[^}]+}\s+from\s+["'](?!@)(.+?\.sol)["']);/g;
-        
+
         let match;
         while ((match = importRegex.exec(content)) !== null) {
             const importPath = match[1] || match[2];
             if (!importPath) continue;
-            
+
             const absoluteImportPath = path.resolve(path.dirname(filePath), importPath);
             const relativeImportPath = path.relative(workspaceFolder.uri.fsPath, absoluteImportPath);
-            
+
             if (!importedFiles.has(relativeImportPath)) {
                 importedFiles.add(relativeImportPath);
                 try {
@@ -177,7 +177,7 @@ export class SolidityAnalyzer {
     }> {
         try {
             this.logger.info(`Sending ${Object.keys(codeObject).length} files to API for analysis`);
-            
+
             const response = await fetch(this.apiURL, {
                 method: 'POST',
                 headers: {
@@ -195,18 +195,18 @@ export class SolidityAnalyzer {
 
             this.logger.debug('API response received, processing');
             const data = await response.json() as ApiResponse;
-            
+
             // Process vulnerabilities
             const vulnerabilities = handleVulnerabilities(data.result);
             this.logger.info(`Analysis complete: found ${vulnerabilities.length} vulnerabilities`);
-            
+
             // Process linter results if available
             let linterResults: LinterResult[] = [];
             if (data.linter) {
                 linterResults = handleLinterResults(data.linter);
                 this.logger.info(`Linting complete: found ${linterResults.length} issues`);
             }
-            
+
             return { vulnerabilities, linterResults };
         } catch (error) {
             this.logger.error('Failed to analyze Solidity code', error);

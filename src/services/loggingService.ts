@@ -19,11 +19,11 @@ export class LoggingService {
 
     constructor(channelName: string = 'Solidity Analyzer') {
         this.outputChannel = vscode.window.createOutputChannel(channelName);
-        
+
         // Get log level from settings
         const config = vscode.workspace.getConfiguration('solidityAnalyzer');
         const configLogLevel = config.get<string>('logLevel', 'info').toLowerCase();
-        
+
         this.currentLogLevel = this.getLogLevelFromString(configLogLevel);
     }
 
@@ -84,13 +84,13 @@ export class LoggingService {
             const timestamp = new Date().toISOString();
             const levelPrefix = LogLevel[level].padEnd(5);
             let logMessage = `[${timestamp}] [${levelPrefix}] ${message}`;
-            
+
             if (args.length > 0) {
-                logMessage += '\n' + args.map(arg => 
+                logMessage += '\n' + args.map(arg =>
                     typeof arg === 'object' ? JSON.stringify(arg, null, 2) : arg
                 ).join('\n');
             }
-            
+
             this.outputChannel.appendLine(logMessage);
         }
     }
