@@ -6,6 +6,7 @@ import { DecorationManager } from './services/decorationManager';
 import { WebviewProvider } from './services/webviewProvider';
 import { LoggingService } from './services/loggingService';
 import { StatusBarService } from './services/statusBarService';
+import { WelcomeService } from './services/welcomeService';
 import { Vulnerability, LinterResult } from './models/types';
 import { RULE_PRESETS } from './config/linterRulePresets';
 
@@ -22,6 +23,7 @@ let analyzer: SolidityAnalyzer;
 let decorationManager: DecorationManager;
 let webviewProvider: WebviewProvider;
 let statusBarService: StatusBarService;
+let welcomeService: WelcomeService;
 let lastAnalyzedVulnerabilities: Vulnerability[] = [];
 let lastAnalyzedLinterResults: LinterResult[] = [];
 
@@ -38,8 +40,18 @@ export function activate(context: vscode.ExtensionContext) {
     decorationManager = new DecorationManager(logger);
     webviewProvider = new WebviewProvider(logger);
     statusBarService = new StatusBarService(logger);
+    welcomeService = new WelcomeService(context, logger);
 
     logger.info('Solidity Analyzer extension activated');
+
+    // Show welcome experience for first-time users
+    welcomeService.showWelcomeExperience();
+
+    // Register the show welcome command
+    const showWelcomeCommand = vscode.commands.registerCommand(
+        'extension.showSolidityAnalyzerWelcome',
+        () => welcomeService.showWelcomeView()
+    );
 
     // Register analysis commands
     const analyzeAllCommand = vscode.commands.registerCommand(
@@ -261,6 +273,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register commands and disposables
     context.subscriptions.push(
+        showWelcomeCommand,
         analyzeAllCommand,
         analyzeCurrentFileCommand,
         dismissHighlightsCommand,
