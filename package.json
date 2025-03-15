@@ -4,7 +4,7 @@
   "description": "A Visual Studio Code extension that analyzes Solidity code for vulnerabilities using the open-source Solidity Analyzer tool.",
   "repository": {
     "type": "git",
-    "url": "https://github.com/IARD-Solutions/Solidity-Analyzer"
+    "url": "https://github.com/IARD-Solutions/solidity-analyzer-vscode"
   },
   "version": "0.2.2",
   "engines": {
