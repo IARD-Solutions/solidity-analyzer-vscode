@@ -104,6 +104,10 @@ Please report any issues you encounter, or any feedback you might have, by email
 
 ## Release Notes
 
+### 0.2.3
+
+- Update repository location
+
 ### 0.2.2
 
 - **Improved Multi-File Analysis**: Now analyzes files in dependency groups for more accurate results
