@@ -6,7 +6,7 @@
     "type": "git",
     "url": "https://github.com/IARD-Solutions/solidity-analyzer-vscode"
   },
-  "version": "0.2.2",
+  "version": "0.2.3",
   "engines": {
     "vscode": "^1.96.0"
   },
