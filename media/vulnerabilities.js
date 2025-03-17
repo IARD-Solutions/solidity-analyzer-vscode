@@ -217,9 +217,10 @@
     }
 
     /**
-     * Filters vulnerabilities based on current UI filters
+     * Filters vulnerabilities based on current UI filters.
+     * Applies confidence level and impact filters from the state.
      * 
-     * @returns {Array} - Filtered vulnerability items
+     * @returns {Array} - Array of filtered vulnerability objects
      */
     function filterVulnerabilities() {
         return state.vulnerabilities.filter(vuln => {
@@ -230,8 +231,9 @@
     }
 
     /**
-     * Renders the vulnerability list in the UI
-     * Groups vulnerabilities by impact level and applies current filters
+     * Renders the vulnerability list in the UI.
+     * Groups vulnerabilities by impact level and applies current filters.
+     * Creates expandable UI elements for each vulnerability.
      */
     function renderVulnerabilityList() {
         const vulnerabilityList = document.getElementById('vulnerability-list');

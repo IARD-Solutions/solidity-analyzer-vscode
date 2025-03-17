@@ -1,3 +1,9 @@
+/**
+ * Main extension entry point for the Solidity Analyzer VS Code extension.
+ * This file handles extension activation, command registration, and service initialization.
+ * It coordinates the various services needed for analyzing Solidity code,
+ * displaying results in the UI, and managing user interactions.
+ */
 import * as vscode from 'vscode';
 import * as path from 'path';
 import dotenv from 'dotenv';

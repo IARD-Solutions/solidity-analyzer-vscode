@@ -6,6 +6,11 @@ import { formatRuleId } from '../utils/vulnerabilityProcessor';
 
 /**
  * Manages the creation and handling of webviews for displaying vulnerabilities.
+ * This class is responsible for:
+ * - Creating and reusing webview panels
+ * - Generating HTML content for the webview
+ * - Handling messages from the webview to the extension
+ * - Managing webview lifecycle and state
  */
 export class WebviewProvider {
     private readonly logger: LoggingService;

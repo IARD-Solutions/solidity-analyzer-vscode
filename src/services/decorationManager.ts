@@ -576,8 +576,8 @@ export class DecorationManager {
     /**
      * Gets the background color for a vulnerability impact level.
      * 
-     * @param impact The impact level
-     * @returns The color string
+     * @param impact The impact level (e.g., 'critical', 'high', 'medium', 'low')
+     * @returns The color string in RGBA format
      */
     private getBackgroundColorForImpact(impact: string): string {
         switch (impact.toLowerCase()) {
@@ -594,8 +594,8 @@ export class DecorationManager {
     /**
      * Gets the border color for a vulnerability impact level.
      * 
-     * @param impact The impact level
-     * @returns The color string
+     * @param impact The impact level (e.g., 'critical', 'high', 'medium', 'low')
+     * @returns The color string in RGBA format
      */
     private getBorderColorForImpact(impact: string): string {
         switch (impact.toLowerCase()) {
