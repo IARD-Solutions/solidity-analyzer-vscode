@@ -21,7 +21,11 @@
     let state = {
         vulnerabilities: window.vulnerabilities || [],
         linterResults: window.linterResults || [],
-        settings: window.settings || { showExplanations: true, showRecommendations: true },
+        settings: window.settings || {
+            showExplanations: true,
+            showRecommendations: true,
+            enableLinting: true
+        },
         filters: {
             confidence: 'all'
         },
@@ -135,6 +139,11 @@
      * @param {string} tabName - The name of the tab to activate
      */
     function toggleTab(tabName) {
+        // Don't do anything if linting is disabled and trying to access linter tab
+        if (tabName === 'linter' && !state.settings.enableLinting) {
+            return;
+        }
+
         // Remove active class from all tabs and content
         document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -1017,8 +1026,13 @@
             });
         }
 
-        // Initialize tab switching
+        // Initialize tab switching (only if tabs exist)
         tabButtons.forEach(tab => {
+            // Skip if this is the linter tab and linting is disabled
+            if (tab.dataset.tab === 'linter' && !state.settings.enableLinting) {
+                return;
+            }
+
             tab.addEventListener('click', () => {
                 toggleTab(tab.dataset.tab);
             });
@@ -1029,7 +1043,7 @@
 
         // Initial render based on active tab
         const activeTab = document.querySelector('.tab.active');
-        if (activeTab?.dataset.tab === 'linter') {
+        if (activeTab?.dataset.tab === 'linter' && state.settings.enableLinting) {
             renderLinterResults();
         } else {
             renderVulnerabilityList();

@@ -195,6 +195,7 @@ export class WebviewProvider {
         // Get user settings using the settings service
         const showExplanations = settingsService.getShowExplanations();
         const showRecommendations = settingsService.getShowRecommendations();
+        const enableLinting = settingsService.getEnableLinting();
 
         // Add recommendation data to vulnerabilities
         const vulnerabilitiesWithRecommendations = vulnerabilities.map(vuln => {
@@ -218,7 +219,8 @@ export class WebviewProvider {
             'codicon.css'
         );
 
-        const totalIssues = vulnerabilities.length + linterResults.length;
+        // Show total issues count based on linting being enabled or not
+        const totalIssues = vulnerabilities.length + (enableLinting ? linterResults.length : 0);
 
         return `<!DOCTYPE html>
             <html lang="en">
@@ -302,9 +304,11 @@ export class WebviewProvider {
                         <div class="tab active" data-tab="vulnerabilities">
                             Vulnerabilities <span class="tab-badge">${vulnerabilities.length}</span>
                         </div>
+                        ${enableLinting ? `
                         <div class="tab" data-tab="linter">
                             Linter Issues <span class="tab-badge">${linterResults.length}</span>
                         </div>
+                        ` : ''}
                     </div>
                     
                     <!-- Vulnerabilities Tab -->
@@ -364,6 +368,7 @@ export class WebviewProvider {
                         <ul id="vulnerability-list" class="vulnerability-list"></ul>
                     </div>
                     
+                    ${enableLinting ? `
                     <!-- Linter Tab -->
                     <div id="linter-tab" class="tab-content">
                         <div class="filters-container">
@@ -406,15 +411,17 @@ export class WebviewProvider {
                         
                         <ul id="linter-list" class="vulnerability-list"></ul>
                     </div>
+                    ` : ''}
                 </div>
                 
                 <script>
                     // Make vulnerability and linter data available to the vulnerabilities.js script
                     window.vulnerabilities = ${JSON.stringify(vulnerabilitiesWithRecommendations)};
-                    window.linterResults = ${JSON.stringify(linterResults)};
+                    window.linterResults = ${enableLinting ? JSON.stringify(linterResults) : '[]'};
                     window.settings = {
                         showExplanations: ${showExplanations},
-                        showRecommendations: ${showRecommendations}
+                        showRecommendations: ${showRecommendations},
+                        enableLinting: ${enableLinting}
                     };
                 </script>
                 <script src="${scriptUri}"></script>
