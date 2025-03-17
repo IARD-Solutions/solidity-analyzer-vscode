@@ -411,7 +411,7 @@ function getSolhintRulesList(): Array<{ id: string, category: string, descriptio
  * Clean up all services when the extension is deactivated.
  */
 function cleanupServices(): void {
-    logger.info('Cleaning up Solidity Analyzer services');
+    logger.debug('Cleaning up Solidity Analyzer services'); // Changed from info to debug
     decorationManager.dispose();
     statusBarService.dispose();
     logger.dispose();

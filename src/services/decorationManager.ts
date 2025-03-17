@@ -30,7 +30,7 @@ export class DecorationManager {
      * @param vulnerabilities The vulnerabilities to highlight
      */
     public highlightVulnerabilities(vulnerabilities: Vulnerability[]): void {
-        this.logger.info(`Highlighting ${vulnerabilities.length} vulnerabilities in editor`);
+        this.logger.debug(`Highlighting ${vulnerabilities.length} vulnerabilities in editor`); // Changed from info to debug
 
         for (const vulnerability of vulnerabilities) {
             if (!vulnerability.lines || vulnerability.lines.length === 0) {
@@ -48,7 +48,7 @@ export class DecorationManager {
      * @param linterResults The linter issues to highlight
      */
     public highlightLinterIssues(linterResults: LinterResult[]): void {
-        this.logger.info(`Highlighting ${linterResults.length} linter issues in editor`);
+        this.logger.debug(`Highlighting ${linterResults.length} linter issues in editor`); // Changed from info to debug
 
         for (const linterResult of linterResults) {
             if (!linterResult.filePath || !linterResult.line) {
@@ -72,7 +72,7 @@ export class DecorationManager {
         }
 
         const firstLocation = vulnerability.lines[0];
-        this.logger.info(`Focusing on vulnerability in file: ${firstLocation.contract} at line ${firstLocation.lines[0]}`);
+        this.logger.debug(`Focusing on vulnerability in file: ${firstLocation.contract} at line ${firstLocation.lines[0]}`); // Changed from info to debug
 
         // Focus on the file and navigate to the line
         this.openAndFocusFile(firstLocation.contract, firstLocation.lines[0]);
@@ -89,7 +89,7 @@ export class DecorationManager {
             return;
         }
 
-        this.logger.info(`Focusing on linter issue in file: ${linterIssue.filePath} at line ${linterIssue.line}`);
+        this.logger.debug(`Focusing on linter issue in file: ${linterIssue.filePath} at line ${linterIssue.line}`); // Changed from info to debug
 
         // Focus on the file and navigate to the line
         this.openAndFocusFile(linterIssue.filePath, linterIssue.line);
@@ -505,7 +505,7 @@ export class DecorationManager {
      * Dismisses all highlights from the editor.
      */
     public dismissHighlights(): void {
-        this.logger.info('Dismissing all highlights');
+        this.logger.debug('Dismissing all highlights'); // Changed from info to debug
 
         // Dispose all vulnerability decorations
         for (const decoration of this.vulnerabilityDecorations.values()) {
@@ -532,7 +532,7 @@ export class DecorationManager {
         // Try to dismiss as vulnerability decoration
         const vulnDecoration = this.vulnerabilityDecorations.get(id);
         if (vulnDecoration) {
-            this.logger.info(`Dismissing vulnerability highlight with ID: ${id}`);
+            this.logger.debug(`Dismissing vulnerability highlight with ID: ${id}`); // Changed from info to debug
             vulnDecoration.dispose();
             this.vulnerabilityDecorations.delete(id);
             this.hoverMessages.delete(id);
@@ -542,7 +542,7 @@ export class DecorationManager {
         // Try to dismiss as linter decoration
         const linterDecoration = this.linterDecorations.get(id);
         if (linterDecoration) {
-            this.logger.info(`Dismissing linter highlight with ID: ${id}`);
+            this.logger.debug(`Dismissing linter highlight with ID: ${id}`); // Changed from info to debug
             linterDecoration.dispose();
             this.linterDecorations.delete(id);
             this.hoverMessages.delete(id);

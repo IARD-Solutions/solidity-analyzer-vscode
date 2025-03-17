@@ -48,7 +48,7 @@ export class WebviewProvider {
         if (WebviewProvider.currentPanel) {
             try {
                 // Update the existing panel
-                this.logger.info('Reusing existing webview panel');
+                this.logger.debug('Reusing existing webview panel'); // Changed from info to debug
                 WebviewProvider.currentPanel.webview.html = this.getWebviewContent(vulnerabilities, linterResults, WebviewProvider.currentPanel.webview, context);
                 WebviewProvider.currentPanel.reveal();
 
@@ -120,7 +120,7 @@ export class WebviewProvider {
             context.subscriptions
         );
 
-        this.logger.info('New webview panel created successfully');
+        this.logger.debug('New webview panel created successfully'); // Changed from info to debug
         return panel;
     }
 
