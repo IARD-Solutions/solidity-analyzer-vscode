@@ -212,6 +212,16 @@
           "type": "boolean",
           "default": false,
           "description": "Hide the Solidity Analyzer status bar item"
+        },
+        "solidityAnalyzer.showExplanations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show explanations for vulnerabilities in the analysis results"
+        },
+        "solidityAnalyzer.showRecommendations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show recommendations for fixing vulnerabilities in the analysis results"
         }
       }
     }

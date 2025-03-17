@@ -3,6 +3,7 @@ import { Vulnerability, LinterResult, Category } from '../models/types';
 import * as path from 'path';
 import { LoggingService } from './loggingService';
 import { formatRuleId } from '../utils/vulnerabilityProcessor';
+import { check_ids, check_recommendations, check_explanations } from '../config/recommendationsData';
 
 /**
  * Manages the creation and handling of webviews for displaying vulnerabilities.
@@ -143,6 +144,39 @@ export class WebviewProvider {
     }
 
     /**
+     * Get recommendation for a vulnerability based on its check type
+     * 
+     * @param vulnerability The vulnerability to get recommendations for
+     * @returns The recommendation string or undefined if not found
+     */
+    private getRecommendationForVulnerability(vulnerability: Vulnerability): { recommendation: string, explanation: string } | undefined {
+        if (!vulnerability.check) return undefined;
+
+        // Try to get the recommendation directly using the check id
+        let recommendation = check_recommendations[vulnerability.check];
+        let explanation = check_explanations[vulnerability.check];
+
+        // If not found, try to look up using the standardized ID mapping
+        if (!recommendation) {
+            // Find any matching key that maps to this detector in check_ids
+            const checkId = Object.keys(check_ids).find(key => check_ids[key] === vulnerability.check);
+            if (checkId) {
+                recommendation = check_recommendations[checkId];
+                explanation = check_explanations[checkId];
+            }
+        }
+
+        if (recommendation || explanation) {
+            return {
+                recommendation: recommendation || 'No specific recommendation available.',
+                explanation: explanation || 'No explanation available.'
+            };
+        }
+
+        return undefined;
+    }
+
+    /**
      * Get the webview content for the vulnerability and linter display panel.
      * 
      * @param vulnerabilities The vulnerabilities to display
@@ -157,6 +191,21 @@ export class WebviewProvider {
         webview: vscode.Webview,
         context: vscode.ExtensionContext
     ): string {
+        // Get user settings
+        const config = vscode.workspace.getConfiguration('solidityAnalyzer');
+        const showExplanations = config.get<boolean>('showExplanations', true);
+        const showRecommendations = config.get<boolean>('showRecommendations', true);
+
+        // Add recommendation data to vulnerabilities
+        const vulnerabilitiesWithRecommendations = vulnerabilities.map(vuln => {
+            const recommendationData = this.getRecommendationForVulnerability(vuln);
+            return {
+                ...vuln,
+                recommendation: showRecommendations ? recommendationData?.recommendation : undefined,
+                explanation: showExplanations ? recommendationData?.explanation : undefined
+            };
+        });
+
         // Get resource paths
         const cssUri = this.getResourceUri(webview, context, 'media', 'vulnerabilities.css');
         const scriptUri = this.getResourceUri(webview, context, 'media', 'vulnerabilities.js');
@@ -210,6 +259,31 @@ export class WebviewProvider {
                     
                     .tab-content.active {
                         display: block;
+                    }
+
+                    .recommendation-box {
+                        margin-top: 12px;
+                        margin-bottom: 12px;
+                        padding: 12px;
+                        border-radius: 6px;
+                        background-color: var(--vscode-editor-inactiveSelectionBackground);
+                        border-left: 4px solid var(--vscode-button-background);
+                    }
+
+                    .recommendation-heading {
+                        font-weight: bold;
+                        margin-bottom: 8px;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    }
+
+                    .explanation-box {
+                        margin-top: 12px;
+                        padding: 12px;
+                        border-radius: 6px;
+                        background-color: var(--vscode-editor-lineHighlightBackground);
+                        font-style: italic;
                     }
                 </style>
             </head>
@@ -336,8 +410,12 @@ export class WebviewProvider {
                 
                 <script>
                     // Make vulnerability and linter data available to the vulnerabilities.js script
-                    window.vulnerabilities = ${JSON.stringify(vulnerabilities)};
+                    window.vulnerabilities = ${JSON.stringify(vulnerabilitiesWithRecommendations)};
                     window.linterResults = ${JSON.stringify(linterResults)};
+                    window.settings = {
+                        showExplanations: ${showExplanations},
+                        showRecommendations: ${showRecommendations}
+                    };
                 </script>
                 <script src="${scriptUri}"></script>
             </body>

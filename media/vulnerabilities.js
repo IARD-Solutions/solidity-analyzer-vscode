@@ -21,6 +21,7 @@
     let state = {
         vulnerabilities: window.vulnerabilities || [],
         linterResults: window.linterResults || [],
+        settings: window.settings || { showExplanations: true, showRecommendations: true },
         filters: {
             confidence: 'all'
         },
@@ -375,6 +376,34 @@
                                 ? `${vuln.lines[0].contract}: Line ${vuln.lines[0].lines[0]}`
                                 : 'Location unknown';
 
+                            // Create recommendation section if available and enabled
+                            let recommendationHtml = '';
+                            if (state.settings.showRecommendations && vuln.recommendation) {
+                                recommendationHtml = `
+                                    <div class="recommendation-box">
+                                        <div class="recommendation-heading">
+                                            <span class="codicon codicon-lightbulb"></span>
+                                            Recommendation
+                                        </div>
+                                        <div>${vuln.recommendation}</div>
+                                    </div>
+                                `;
+                            }
+
+                            // Create explanation section if available and enabled
+                            let explanationHtml = '';
+                            if (state.settings.showExplanations && vuln.explanation) {
+                                explanationHtml = `
+                                    <div class="explanation-box">
+                                        <div class="recommendation-heading">
+                                            <span class="codicon codicon-info"></span>
+                                            Why This Is An Issue
+                                        </div>
+                                        <div>${vuln.explanation}</div>
+                                    </div>
+                                `;
+                            }
+
                             li.innerHTML = `
                                 <div class="vulnerability-header" onclick="toggleItemExpansion(this)">
                                     <div class="vulnerability-title">
@@ -396,6 +425,8 @@
                                             <td>${vuln.description || 'No description available'}</td>
                                         </tr>
                                     </table>
+                                    ${explanationHtml}
+                                    ${recommendationHtml}
                                     <div class="vulnerability-actions">
                                         <button class="action-button focus-button" data-index="${li.dataset.index}" title="Focus on vulnerability in code">
                                             <span class="codicon codicon-selection"></span> Focus
