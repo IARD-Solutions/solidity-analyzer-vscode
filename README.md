@@ -104,6 +104,11 @@ Please report any issues you encounter, or any feedback you might have, by email
 
 ## Release Notes
 
+### 0.2.5
+
+- Bug fix and documentation update
+- Move some logging to DEBUG
+
 ### 0.2.4
 
 - Update example image
