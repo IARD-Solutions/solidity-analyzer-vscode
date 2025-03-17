@@ -137,7 +137,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     const dismissHighlightsCommand = vscode.commands.registerCommand(
-        'solidity-analyzer.dismissHighlights',
+        'extension.dismissHighlights',
         () => {
             decorationManager.dismissHighlights();
         }
