@@ -143,31 +143,99 @@ export class DecorationManager {
                 return;
             }
 
-            // Check if the file is already open in an editor
             const uri = vscode.Uri.file(resolvedPath);
-            let editor: vscode.TextEditor | undefined;
 
-            // First check if the file is open in any visible editors
-            for (const visibleEditor of vscode.window.visibleTextEditors) {
-                if (visibleEditor.document.uri.fsPath === uri.fsPath) {
-                    editor = visibleEditor;
-                    this.logger.debug(`File already open in editor: ${uri.fsPath}`);
-                    break;
+            // First check which editors already have this document open,
+            // and in which view columns (tab groups) they exist
+            type EditorInfo = { editor: vscode.TextEditor; viewColumn: vscode.ViewColumn };
+            const existingEditors: EditorInfo[] = [];
+
+            // Gather all editors that have this file open
+            for (const editor of vscode.window.visibleTextEditors) {
+                if (editor.document.uri.fsPath === uri.fsPath) {
+                    existingEditors.push({
+                        editor: editor,
+                        viewColumn: editor.viewColumn || vscode.ViewColumn.Active
+                    });
+                    this.logger.debug(`File found in editor in column ${editor.viewColumn}`);
                 }
             }
 
-            // If not found in visible editors, open it
-            if (!editor) {
-                this.logger.debug(`Opening file: ${uri.fsPath}`);
-                const document = await vscode.workspace.openTextDocument(uri);
-                editor = await vscode.window.showTextDocument(document);
+            let editor: vscode.TextEditor;
+
+            if (existingEditors.length > 0) {
+                // File is already open in one or more editors, use the first one
+                const existingEditor = existingEditors[0];
+                this.logger.debug(`Focusing existing editor in column ${existingEditor.viewColumn}`);
+
+                // Show the document in its existing view column
+                editor = await vscode.window.showTextDocument(
+                    existingEditor.editor.document,
+                    {
+                        viewColumn: existingEditor.viewColumn,
+                        preserveFocus: false,
+                        preview: false
+                    }
+                );
             } else {
-                // Make the existing editor active
-                await vscode.window.showTextDocument(editor.document, { viewColumn: editor.viewColumn });
+                // Not visible in any editor, check if document is already loaded
+                let existingDocument: vscode.TextDocument | undefined;
+                let existingViewColumn: vscode.ViewColumn | undefined;
+
+                // Find in all available text documents (may be hidden in tabs)
+                for (const doc of vscode.workspace.textDocuments) {
+                    if (doc.uri.fsPath === uri.fsPath) {
+                        existingDocument = doc;
+
+                        // Try to find out which view column this document lives in
+                        // This is a bit tricky since hidden docs don't have editors
+                        // We'll check for tab groups that might contain this file
+                        for (const tabGroup of vscode.window.tabGroups.all) {
+                            for (const tab of tabGroup.tabs) {
+                                // Check if this tab input matches our document URI
+                                if (tab.input instanceof vscode.TabInputText &&
+                                    tab.input.uri.fsPath === uri.fsPath) {
+                                    // Found the tab! Use its view column
+                                    existingViewColumn = tabGroup.viewColumn;
+                                    this.logger.debug(`Found existing tab in group ${existingViewColumn}`);
+                                    break;
+                                }
+                            }
+                            if (existingViewColumn) break;
+                        }
+
+                        break;
+                    }
+                }
+
+                if (existingDocument) {
+                    this.logger.debug(`Document already open but not visible. Using viewColumn: ${existingViewColumn}`);
+
+                    // Show the existing document, using its view column if we found it
+                    editor = await vscode.window.showTextDocument(
+                        existingDocument,
+                        {
+                            viewColumn: existingViewColumn || vscode.ViewColumn.Beside, // If we found its view column, use that
+                            preserveFocus: false,
+                            preview: false
+                        }
+                    );
+                } else {
+                    // Document not open at all, open it fresh
+                    this.logger.debug('Opening new document');
+                    const document = await vscode.workspace.openTextDocument(uri);
+                    editor = await vscode.window.showTextDocument(
+                        document,
+                        {
+                            preserveFocus: false,
+                            preview: false
+                        }
+                    );
+                }
             }
 
-            // Convert from 1-based to 0-based line number if needed
-            const targetLine = Math.max(0, line - 1);
+            // Now we have an editor with our document, set the cursor position
+            const targetLine = Math.max(0, line - 1); // Convert to 0-based
 
             if (targetLine >= editor.document.lineCount) {
                 this.logger.warn(`Line ${line} exceeds document length (${editor.document.lineCount} lines)`);
@@ -176,6 +244,9 @@ export class DecorationManager {
 
             // Position at the beginning of the line
             const position = new vscode.Position(targetLine, 0);
+
+            // Give the editor a moment to stabilize
+            await new Promise(resolve => setTimeout(resolve, 100));
 
             // Move cursor to position and reveal in editor
             editor.selection = new vscode.Selection(position, position);
