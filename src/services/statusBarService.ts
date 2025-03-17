@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Vulnerability, LinterResult } from '../models/types';
 import { LoggingService } from './loggingService';
+import { settingsService } from './settingsService';
 
 /**
  * Manages the extension's status bar items.
@@ -21,11 +22,28 @@ export class StatusBarService {
     constructor(logger: LoggingService) {
         this.logger = logger;
 
-        this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right);
+        this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
         // Change command to re-analyze current file when clicked
         this.statusBarItem.command = 'extension.analyzeCurrentSolidityFile';
         this.refresh();
-        this.statusBarItem.show();
+
+        // Check if status bar should be hidden based on settings
+        const hideStatusBar = settingsService.getHideStatusBar();
+        if (!hideStatusBar) {
+            this.statusBarItem.show();
+        }
+
+        // Listen for settings changes
+        vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('solidityAnalyzer.hideStatusBar')) {
+                const hide = settingsService.getHideStatusBar();
+                if (hide) {
+                    this.statusBarItem.hide();
+                } else {
+                    this.statusBarItem.show();
+                }
+            }
+        });
 
         this.logger.debug('StatusBarService initialized');
     }

@@ -3,6 +3,7 @@ import * as path from 'path';
 import { ApiResponse, CodeObject, Vulnerability, LinterResult } from '../models/types';
 import { handleVulnerabilities, handleLinterResults } from '../utils/vulnerabilityProcessor';
 import { LoggingService } from './loggingService';
+import { settingsService } from './settingsService';
 
 /**
  * Service class for analyzing Solidity code for vulnerabilities.
@@ -44,7 +45,13 @@ export class SolidityAnalyzer {
         }
 
         this.logger.info('Finding Solidity files in workspace');
-        const solidityFiles = await vscode.workspace.findFiles('**/*.sol', '**/node_modules/**');
+
+        // Use settings service to determine if node_modules should be analyzed
+        const analyzeNodeModules = settingsService.getAnalyzeNodeModules();
+        const excludePattern = analyzeNodeModules ? undefined : '**/node_modules/**';
+
+        // Find all solidity files in the workspace
+        const solidityFiles = await vscode.workspace.findFiles('**/*.sol', excludePattern);
 
         if (solidityFiles.length === 0) {
             this.logger.warn('No Solidity files found in the workspace');

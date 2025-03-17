@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { settingsService } from './settingsService';
 
 /**
  * Logging levels supported by the application
@@ -23,16 +24,23 @@ export class LoggingService {
     constructor() {
         this.outputChannel = vscode.window.createOutputChannel('Solidity Analyzer');
 
+        // Use settings service to set initial log level
+        this.updateLogLevel();
+
         // Listen for configuration changes to update log level
         this.disposables.push(
             vscode.workspace.onDidChangeConfiguration(event => {
                 if (event.affectsConfiguration('solidityAnalyzer.logLevel')) {
-                    // Log message about the log level change
-                    const newLevel = this.getConfiguredLogLevel();
-                    this.outputChannel.appendLine(`[INFO] Log level changed to ${newLevel}`);
+                    this.updateLogLevel();
                 }
             })
         );
+    }
+
+    private updateLogLevel(): void {
+        // Get log level from settings service
+        const logLevel = settingsService.getLogLevel();
+        // Apply the log level
     }
 
     /**

@@ -112,23 +112,38 @@
         "solidityAnalyzer.analyzeNodeModules": {
           "type": "boolean",
           "default": false,
-          "description": "Analyze Solidity files in node_modules folder"
-        },
-        "solidityAnalyzer.logLevel": {
-          "type": "string",
-          "enum": [
-            "debug",
-            "info",
-            "warn",
-            "error"
-          ],
-          "default": "info",
-          "description": "Set the logging level for the extension"
+          "description": "Analyze Solidity files in node_modules folder",
+          "category": "Analysis"
         },
         "solidityAnalyzer.autoAnalyzeOnSave": {
           "type": "boolean",
           "default": false,
-          "description": "Automatically run analysis when saving Solidity files"
+          "description": "Automatically run analysis when saving Solidity files",
+          "category": "Analysis"
+        },
+        "solidityAnalyzer.enableLinting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable linting functionality alongside security analysis",
+          "category": "Analysis"
+        },
+        "solidityAnalyzer.showExplanations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show explanations for vulnerabilities in the analysis results",
+          "category": "Display"
+        },
+        "solidityAnalyzer.showRecommendations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show recommendations for fixing vulnerabilities in the analysis results",
+          "category": "Display"
+        },
+        "solidityAnalyzer.hideStatusBar": {
+          "type": "boolean",
+          "default": false,
+          "description": "Hide the Solidity Analyzer status bar item",
+          "category": "Display"
         },
         "solidityAnalyzer.filterSeverity": {
           "type": "array",
@@ -151,12 +166,14 @@
             "Informational",
             "Optimization"
           ],
-          "description": "Show vulnerabilities with these severity levels"
+          "description": "Show vulnerabilities with these severity levels only",
+          "category": "Filters"
         },
         "solidityAnalyzer.filterLintCategories": {
           "type": "array",
           "default": [],
-          "description": "Filter linter issues by category",
+          "description": "Filter linter issues by category (empty array shows all categories)",
+          "category": "Filters",
           "items": {
             "type": "string",
             "enum": [
@@ -171,7 +188,8 @@
         "solidityAnalyzer.filterLintSeverity": {
           "type": "array",
           "default": [],
-          "description": "Filter linter issues by severity level",
+          "description": "Filter linter issues by severity level (empty array shows all severities)",
+          "category": "Filters",
           "items": {
             "type": "string",
             "enum": [
@@ -181,23 +199,20 @@
             ]
           }
         },
-        "solidityAnalyzer.enableLinting": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable or disable linting functionality"
-        },
-        "solidityAnalyzer.lintIgnoreRules": {
+        "solidityAnalyzer.ignoreRules": {
           "type": "array",
           "default": [],
-          "description": "List of linting rule IDs to ignore. You can add rules manually or by right-clicking on a linter issue and selecting 'Ignore this linter rule'.",
+          "description": "List of linting rule IDs to ignore. Add rules manually or by right-clicking on a linter issue and selecting 'Ignore this linter rule'.",
+          "category": "Rules",
           "items": {
             "type": "string"
           }
         },
-        "solidityAnalyzer.lintIgnorePresets": {
+        "solidityAnalyzer.ignorePresets": {
           "type": "array",
           "default": [],
           "description": "Predefined sets of rules to ignore",
+          "category": "Rules",
           "items": {
             "type": "string",
             "enum": [
@@ -208,20 +223,17 @@
             ]
           }
         },
-        "solidityAnalyzer.hideStatusBar": {
-          "type": "boolean",
-          "default": false,
-          "description": "Hide the Solidity Analyzer status bar item"
-        },
-        "solidityAnalyzer.showExplanations": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show explanations for vulnerabilities in the analysis results"
-        },
-        "solidityAnalyzer.showRecommendations": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show recommendations for fixing vulnerabilities in the analysis results"
+        "solidityAnalyzer.logLevel": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "default": "info",
+          "description": "Set the logging level for the extension",
+          "category": "Advanced"
         }
       }
     }

@@ -15,6 +15,7 @@ import { StatusBarService } from './services/statusBarService';
 import { WelcomeService } from './services/welcomeService';
 import { Vulnerability, LinterResult } from './models/types';
 import { RULE_PRESETS } from './config/linterRulePresets';
+import { settingsService } from './services/settingsService';
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -216,13 +217,16 @@ export function activate(context: vscode.ExtensionContext) {
                     ruleId = selectedRule.label;
                 }
 
-                // Add the rule to the ignored rules list in settings
-                const config = vscode.workspace.getConfiguration('solidityAnalyzer');
-                const currentIgnoredRules = config.get<string[]>('lintIgnoreRules', []);
+                // Get current ignored rules using settings service
+                const currentIgnoredRules = settingsService.getIgnoreRules();
 
                 if (!currentIgnoredRules.includes(ruleId)) {
-                    currentIgnoredRules.push(ruleId);
-                    await config.update('lintIgnoreRules', currentIgnoredRules, vscode.ConfigurationTarget.Workspace);
+                    // Add the new rule to the list
+                    const updatedRules = [...currentIgnoredRules, ruleId];
+
+                    // Update the setting using VS Code API
+                    const config = vscode.workspace.getConfiguration('solidityAnalyzer');
+                    await config.update('ignoreRules', updatedRules, vscode.ConfigurationTarget.Workspace);
 
                     // Show a notification with an Undo button
                     const undoAction = 'Undo';
@@ -233,7 +237,7 @@ export function activate(context: vscode.ExtensionContext) {
                         if (selection === undoAction) {
                             // Remove the rule from ignored rules if Undo is clicked
                             const updatedRules = currentIgnoredRules.filter(rule => rule !== ruleId);
-                            await config.update('lintIgnoreRules', updatedRules, vscode.ConfigurationTarget.Workspace);
+                            await config.update('ignoreRules', updatedRules, vscode.ConfigurationTarget.Workspace);
                             vscode.window.showInformationMessage(`Removed "${ruleId}" from ignored linter rules`);
 
                             // If the webview panel exists, tell it to restore the rule
@@ -268,8 +272,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Setup file save listener for auto-analysis
     const fileWatcher = vscode.workspace.onDidSaveTextDocument(async (document) => {
-        const config = vscode.workspace.getConfiguration('solidityAnalyzer');
-        const autoAnalyzeOnSave = config.get<boolean>('autoAnalyzeOnSave', false);
+        const autoAnalyzeOnSave = settingsService.getAutoAnalyzeOnSave();
 
         if (autoAnalyzeOnSave && document.languageId === 'solidity') {
             logger.info(`Auto-analyzing saved file: ${document.fileName}`);
@@ -299,26 +302,26 @@ export function activate(context: vscode.ExtensionContext) {
  */
 function updateAnalysisResults(
     vulnerabilities: Vulnerability[],
+
     linterResults: LinterResult[],
     context: vscode.ExtensionContext
 ): void {
     // Filter vulnerabilities by severity if configured
-    const config = vscode.workspace.getConfiguration('solidityAnalyzer');
-    const severityFilter = config.get<string[]>('filterSeverity', []);
+    const severityFilter = settingsService.getFilterSeverity();
 
     const filteredVulns = vulnerabilities.filter(vuln =>
         !severityFilter.length || severityFilter.includes(vuln.impact)
     );
 
     // Filter linter results by category, severity, and ignored rules
-    const enableLinting = config.get<boolean>('enableLinting', true);
+    const enableLinting = settingsService.getEnableLinting();
     let filteredLinterResults = linterResults;
 
     if (enableLinting) {
-        const categoryFilter = config.get<string[]>('filterLintCategories', []);
-        const severityFilter = config.get<string[]>('filterLintSeverity', []);
-        const ignoreRules = config.get<string[]>('lintIgnoreRules', []);
-        const ignorePresets = config.get<string[]>('lintIgnorePresets', []);
+        const categoryFilter = settingsService.getFilterLintCategories();
+        const severityFilter = settingsService.getFilterLintSeverity();
+        const ignoreRules = settingsService.getIgnoreRules();
+        const ignorePresets = settingsService.getIgnorePresets();
 
         // Build a complete list of rules to ignore, including from presets
         const allIgnoredRules = [...ignoreRules];

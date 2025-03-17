@@ -4,6 +4,7 @@ import * as path from 'path';
 import { LoggingService } from './loggingService';
 import { formatRuleId } from '../utils/vulnerabilityProcessor';
 import { check_ids, check_recommendations, check_explanations } from '../config/recommendationsData';
+import { settingsService } from './settingsService';
 
 /**
  * Manages the creation and handling of webviews for displaying vulnerabilities.
@@ -191,10 +192,9 @@ export class WebviewProvider {
         webview: vscode.Webview,
         context: vscode.ExtensionContext
     ): string {
-        // Get user settings
-        const config = vscode.workspace.getConfiguration('solidityAnalyzer');
-        const showExplanations = config.get<boolean>('showExplanations', true);
-        const showRecommendations = config.get<boolean>('showRecommendations', true);
+        // Get user settings using the settings service
+        const showExplanations = settingsService.getShowExplanations();
+        const showRecommendations = settingsService.getShowRecommendations();
 
         // Add recommendation data to vulnerabilities
         const vulnerabilitiesWithRecommendations = vulnerabilities.map(vuln => {
