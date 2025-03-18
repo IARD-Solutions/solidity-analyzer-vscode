@@ -104,6 +104,17 @@ Please report any issues you encounter, or any feedback you might have, by email
 
 ## Release Notes
 
+### 0.3.0
+
+- **Enhanced Vulnerability Explanations**: Added detailed explanations for each vulnerability type
+  - Access explanations directly in the analysis results panel
+
+- **Actionable Recommendations**: Added specific recommendations for fixing vulnerabilities
+  - Get practical suggestions for code improvements
+
+- **Bug Fixes**:
+  - Cleanly remove linting issues when deactivited in the settings
+
 ### 0.2.5
 
 - Bug fix and documentation update
