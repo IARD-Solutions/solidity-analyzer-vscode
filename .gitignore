@@ -47,3 +47,4 @@ coverage/
 
 # Visual Studio Code files
 *.vsix
+.vscode-test/
