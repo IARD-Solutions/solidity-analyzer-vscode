@@ -6,14 +6,15 @@ export default defineConfig([
 		label: 'unitTests',
 		files: 'out/test/**/*.test.js',
 		version: 'insiders',
-		workspaceFolder: './sampleWorkspace',
+		workspaceFolder: './src/exampleContracts', // Use the example contracts as workspace
 		mocha: {
 			ui: 'tdd',
-			timeout: 30000 // Increased timeout to allow for extension activation
+			timeout: 60000 // Increased timeout to allow for extension activation
 		},
 		launchArgs: [
-			'--disable-extensions', // Disable other extensions that might interfere
-			'--extensionDevelopmentPath=.' // Explicitly point to the extension being tested
+			// Don't disable extensions as it may affect language support
+			'--extensionDevelopmentPath=.', // Explicitly point to the extension being tested
+			'--enable-proposed-api=IARD-Solutions.iards-solidity-analyzer' // Enable any proposed APIs if needed
 		]
 	}
 	// you can specify additional test configurations, too
